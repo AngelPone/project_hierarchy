@@ -5,7 +5,7 @@ TRAIN_WINDOW <- 120
 FREQ <- 12
 GROUPS <- c(2, 2)
 ALPHA <- list(upper = c(0.95, 0.95, 0.85, 0.85), lower = c(0.9, 0.9, 0.8, 0.8))
-BETA <- list(upper = c(1e-4, 1e-4, 0, 0), lower = c(1e-5, 1e-5, 0, 0))
+BETA <- list(upper = c(1e-5, 1e-5, 0, 0), lower = c(1e-6, 1e-6, 0, 0))
 GAMMA <- list(upper = c(0.01, 0.01, 0.005, 0.005), lower = c(0.005, 0.005, 0, 0))
 SPIKE <- c(2, 2, 8, 8)
 SIGMA <- diag(c(4, 4, 20, 20))
@@ -66,6 +66,11 @@ plot_series <- function(x){
 foo <- sim()
 cor(foo$y)
 plot_series(foo)
+
+par(mfrow=c(2,2))
+for (i in 1:NCOL(foo$y)){
+  plot(foo$y[,i], type='l', main=paste0("Series ", i), ylab = "y")
+}
 
 
 
