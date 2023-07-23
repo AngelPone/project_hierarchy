@@ -1,4 +1,4 @@
-N <- 100
+N <- 1000
 TIME_WINDOW <- 132
 WARM_UP <- 120
 TRAIN_WINDOW <- 120
@@ -47,7 +47,7 @@ sim <- function(){
   y <- sapply(seq_along(state), function(x){
     as.vector(state[[x]] %*% wvec + epsilon[(WARM_UP+1): (WARM_UP + TIME_WINDOW), x])
   }, simplify = "array")
-  list(y = y, alpha=alpha, beta=beta, gamma=gamma, epsilon=epsilon, state=state)
+  list(y = y, params=list(alpha=alpha, beta=beta, gamma=gamma, epsilon=epsilon, state=state))
 }
 
 
@@ -63,16 +63,34 @@ plot_series <- function(x){
   }
 }
 
-foo <- sim()
-cor(foo$y)
-plot_series(foo)
-
-par(mfrow=c(2,2))
-for (i in 1:NCOL(foo$y)){
-  plot(foo$y[,i], type='l', main=paste0("Series ", i), ylab = "y")
+produce_basef <- function(obj){
+  f <- function(x){
+    mdl <- forecast(ets(ts(x, frequency = 12), model="AAA", damped=FALSE, additive=TRUE), h=12)
+    c(as.numeric(fitted(mdl)), mdl$mean)
+  }
+  obj$f <- list()
+  obj$f$bottom <- sapply(1:4, function(x){ f(obj$y[1:TRAIN_WINDOW, x]) },
+                         simplify = "array")
+  obj$f$total <- f(rowSums(obj$y)[1:TRAIN_WINDOW])
+  obj
 }
 
+library(dplyr)
+library(foreach)
+set.seed(42)
+
+objs <- lapply(1:N, function(x){sim()})
 
 
+cl <- parallel::makeCluster(8)
+doParallel::registerDoParallel(cl)
+
+objs <- foreach(d=iterators::iter(objs), .errorhandling="pass", 
+                .packages=c("forecast")) %dopar%
+  {produce_basef(d)}
+
+saveRDS(objs, "data/objs.rds")
+
+parallel::stopCluster(cl)
 
 
