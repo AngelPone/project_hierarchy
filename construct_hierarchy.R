@@ -1,4 +1,5 @@
-
+library(forecast)
+library(cluster)
 
 #' hts
 #' 
@@ -27,9 +28,12 @@ forecast.hts <- function(x, f){
     all_ts <- x$bts %*% t(x$S)
     x$basef <- apply(all_ts, 2, f)
   }
-  if (!is.null(hts$nl$S) && is.null(hts$nl$basef)) {
-    all_nts <-x$bts %*% t(x$nl$S)
-    x$nl$basef <- apply(all_ts, 2, f)
+  
+  for (level in x$nl) {
+    if (is.null(level$basef)) {
+      all_nts <-x$bts %*% t(level$S)
+      level$basef <- apply(all_nts, 2, f)
+    }
   }
 }
 
@@ -52,10 +56,6 @@ evaluate.hts <- function(x, metric = "RMSE") {
 }
 
 
-#' Euclidean distance
-distance.euclidean <- function(x, y) { (x-y)^2 }
-
-
 is.hts <- function(x) {
   "hts" %in% class(x)
 }
@@ -70,13 +70,12 @@ is.hts <- function(x) {
 #' length time series/point output.
 #' @param distance function of similarity/diversity measure:
 #' ( tts1, tts2 ) -> Distance(tts1, tts2)
-#' @param cluster function of clustering ( tts, distance ) -> group_lst
-#' * tts is a matrix of transformed bts
-#' * group_list should be a list of list. Outer list refers to multiple 
+#' @param cluster function of clustering ( distance, ... ) -> group_lst
+#' * distance is the distance matrix
+#' * group_list should be a list. Outer list refers to multiple 
 #' different clustering results, e.g, multiple run of K-means with different
 #' cluter numbers, clustering path of hierarchical clustering.
-#' The inner list refers to cluster member of each clusters.
-#' The Outer list and inner list should both be indexed by integer.
+#' Each list is a vector indicating which cluster each series belongs to
 #' @return hts object with new levels
 build_level <- function(
     hts,
@@ -88,20 +87,28 @@ build_level <- function(
   
   stopifnot(is.hts(hts))
   
+  n <- NCOL(hts$bts)
   cluster_input <- matrix(apply(hts$bts, 2, representator),
-                         ncol = NCOL(hts$bts))
-  group_result <- cluster(cluster_input, distance, ...)
+                         ncol = n)
+  distance_mat <- matrix(0, n, n)
   
-  stopifnot(is.list(group_result[[1]]))
+  for(i in 1:n) {
+    for (j in 1:i) {
+      distance_mat[i, j] <- distance(cluster_input[, i], cluster_input[, j])
+      distance_mat[j, i] <- distance_mat[i, j]
+    }
+  }
+  
+  group_result <- cluster(distance_mat, ...)
   
   # temporal function that group list to summing matrix
   grplst2Slst <- function(grplsts) {
-    lapply(grplsts, function(grplst) {
-      list(S = do.call(rbind, lapply(grp){
+    lapply(grplsts, function(grpvec) {
+      list(S = do.call(rbind, lapply(unique(grpvec), function(grp){
         S_row <- vector("numeric", NCOL(hts$bts))
-        S_row[grp] <- 1
+        S_row[which(grpvec == grp)] <- 1
         S_row
-      }), basef=NULL)
+      })), basef=NULL)
     })
   }
   
