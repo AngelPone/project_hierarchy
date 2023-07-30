@@ -8,10 +8,10 @@ library(cluster)
 #' nl: new level
 #" basef: base forecasts
 #' rf: reconciled forecasts
-hts <- function(S, bts) {
+hts <- function(S, bts, tts) {
   structure(
     list(
-      S = S, bts = bts,
+      S = S, bts = bts, tts = tts,
       nl = list(),
       basef = NULL,
       rf = NULL
@@ -26,15 +26,20 @@ hts <- function(S, bts) {
 forecast.hts <- function(x, f){
   if (is.null(x$basef)) {
     all_ts <- x$bts %*% t(x$S)
-    x$basef <- apply(all_ts, 2, f)
+    bf <- apply(all_ts, 2, f)
+    x$basef <- unname(do.call(cbind, lapply(bf, function(x){x$basef})))
+    x$resid <- unname(do.call(cbind, lapply(bf, function(x){x$resid})))
   }
   
-  for (level in x$nl) {
-    if (is.null(level$basef)) {
-      all_nts <-x$bts %*% t(level$S)
-      level$basef <- apply(all_nts, 2, f)
+  for (level in seq_along(x$nl)) {
+    if (is.null(x$nl[[level]]$basef)) {
+      all_nts <-x$bts %*% t(x$nl[[level]]$S)
+      bf <- apply(all_nts, 2, f)
+      x$nl[[level]]$basef <- unname(do.call(cbind, lapply(bf, function(x){x$basef})))
+      x$nl[[level]]$resid <- unname(do.call(cbind, lapply(bf, function(x){x$resid})))
     }
   }
+  x
 }
 
 #' add new level
@@ -43,16 +48,7 @@ updateLevel.hts <- function(x, new_S, meta) {
 }
 
 evaluate.hts <- function(x, metric = "RMSE") {
-  if (is.null(x$rf)) {
-    stop("Reconciled forecasts are null")
-  }
-  
-  if (metric == "RMSE") {
-    for (level in x$nl) {
-      if (is.null(level$rf)) next
-      level$acc <- sqrt(rowMeans((level$rf - x$bts)^2))
-    }
-  }
+  sqrt(rowMeans((x$rf - x$tts %*% t(x$S))^2))
 }
 
 
@@ -114,6 +110,23 @@ build_level <- function(
   
   nl <- grplst2Slst(group_result)
   
+  concat_str <- function(x){
+    do.call(paste0, as.list(x))
+  }
+  
+  # remove duplicated rows
+  orig_rows <- apply(hts$S, 1, concat_str)
+  if (keep_old) {
+    orig_rows <- append(orig_rows, do.call(c, lapply(hts$nl, function(g) {apply(g$S, 1, concat_str)})))
+  }
+  
+  for (i in seq_along(nl)) {
+    nl[[i]]$S <-nl[[i]]$S[which(!(apply(nl[[i]]$S, 1, concat_str) %in% orig_rows)),]
+  }
+  
+  nl <- Filter(function(x){NROW(x$S) > 0}, nl)
+  
+  
   if (keep_old) {
     hts$nl <- append(hts$nl, nl)
   } else {
@@ -168,6 +181,10 @@ kmeans <- function(ts_mat, distance, n_clusters, max_iter = 100, tol=1e-4) {
     }
   }
   list(grplst)
+}
+
+residuals.hts <- function(x){
+  cbind(x$resid, do.call(cbind, lapply(x$nl, function(g){ g$resid })))
 }
 
 # test_data <- NULL
