@@ -1,10 +1,6 @@
 output <- vector("list", 5)
 names(output) <- c("representator", "distance", "cluster", "accuracy", "other")
 
-num.cores <- 6
-cl <- parallel::makeCluster(num.cores)
-doParallel::registerDoParallel(cl)
-
 metrics <- c("rmse", "mae")
 
 add_result <- function(output, representotar, distance, 

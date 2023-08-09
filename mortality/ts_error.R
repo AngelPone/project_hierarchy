@@ -1,5 +1,10 @@
 rm(list = ls())
 source("R/construct_hierarchy.R", chdir = T)
+
+num.cores <- 8
+cl <- parallel::makeCluster(num.cores)
+doParallel::registerDoParallel(cl)
+
 data <- readRDS("mortality/data.rds")
 
 
@@ -44,5 +49,6 @@ for (representator in c("ts", "error")) {
     }
   }
 }
-
+library(tibble)
+output_pre(output) %>% View()
 saveRDS(output, "mortality/ts_error.rds")
