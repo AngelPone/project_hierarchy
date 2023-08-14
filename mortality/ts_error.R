@@ -1,5 +1,6 @@
 rm(list = ls())
 source("R/construct_hierarchy.R", chdir = T)
+library(Matrix)
 
 num.cores <- 8
 cl <- parallel::makeCluster(num.cores)
@@ -24,7 +25,7 @@ for (representator in c("ts", "error")) {
                            distance = distance, 
                            cluster = "kmedoids", 
                            accs = accs,
-                           other = list(S = dt$nl[[1]]$S))
+                           other = list(S = as(dt$nl[[1]]$S, "sparseMatrix")))
     }
   }
 }
@@ -45,7 +46,7 @@ for (representator in c("ts", "error")) {
                            distance = distance, 
                            cluster = paste0("hcluster-", method), 
                            accs = accs,
-                           other = list(S = dt$nl[[1]]$S))
+                           other = list(S = as(dt$nl[[1]]$S, "sparseMatrix")))
     }
   }
 }
