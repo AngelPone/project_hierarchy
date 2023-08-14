@@ -19,12 +19,9 @@ output <- add_result(output, "", "", "", accs)
 
 # reconciliation without clustering
 data <- reconcile.all(data)
-
 accs <- evaluate.hts(data, metrics, type = "rf")
 output <- add_result(output, "", "", "", accs)
 
-
-output_pre(output) %>% View()
 
 # natural hierarchy
 S <- read.csv("data/S.csv", row.names = 1)
@@ -42,9 +39,6 @@ output <- add_result(output, "", "", "natural", accs)
 
 
 # random hierarchy
-
-
-
 for (n_cluster in 3:10) {
   data <- build_level(data, representator.ts, 
               distance.euclidean, cluster.random, 
@@ -54,7 +48,6 @@ for (n_cluster in 3:10) {
   accs <- evaluate.hts(data, metrics, type = "average")
   output <- add_result(output, "", "", "random", accs, other = list(n_clusters = n_cluster, average=20))
 }
-
 
 saveRDS(output, "mortality/output_base.rds")
 saveRDS(data, "mortality/data.rds")

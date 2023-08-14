@@ -49,6 +49,13 @@ for (representator in c("ts", "error")) {
     }
   }
 }
-library(tibble)
-output_pre(output) %>% View()
+
 saveRDS(output, "mortality/ts_error.rds")
+
+
+
+
+
+
+
+
