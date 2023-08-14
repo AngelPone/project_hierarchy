@@ -1,4 +1,5 @@
 source("R/construct_hierarchy.R", chdir = T)
+library(Matrix)
 
 mortality <- read.csv("data/mortality.csv")
 colnames(mortality) <- stringi::stri_replace_all_fixed(colnames(mortality), ".", "-")
@@ -34,7 +35,9 @@ natural_data$nl <- list(list(S = unname(as.matrix(S[,colnames(mortality)][which(
 natural_data <- forecast(natural_data, f.arima)
 natural_data <- reconcile.all(natural_data)
 accs <- evaluate.hts(natural_data, metrics, type = "nl")
-output <- add_result(output, "", "", "natural", accs)
+output <- add_result(output, "", "", "natural", accs, other = list(
+  S = as(natural_data$nl[[1]]$S, "sparseMatrix")
+))
 
 
 
@@ -46,7 +49,14 @@ for (n_cluster in 3:10) {
   data <- forecast(data, f.arima)
   data <- reconcile.all(data)
   accs <- evaluate.hts(data, metrics, type = "average")
-  output <- add_result(output, "", "", "random", accs, other = list(n_clusters = n_cluster, average=20))
+  accs_single <- evaluate.hts(data, metrics, type = "nl")
+  for (acc in seq_along(accs_single)) {
+    output <- add_result(output, "", "", "random-single", accs_single[[acc]],
+                         other = list(n_clusters = n_cluster, S = as(accs$nl[[acc]]$S, "sparseMatrix")))
+  }
+  
+  output <- add_result(output, "", "", "random", accs, other = list(n_clusters = n_cluster, average=20,
+                                                                    S = lapply(data$nl, function(x){ as(x$S, "sparseMatrix") })))
 }
 
 saveRDS(output, "mortality/output_base.rds")
