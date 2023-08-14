@@ -31,18 +31,35 @@ hts <- function(S, bts, tts) {
 
 
 
+#' function to iterator over S, find the forecast store and return the forecast
+#' 
+fhts_helper <- function(S, all_ts, f) {
+  stored_forecasts <- lapply(iterators::iter(S, by = "row"), function(row){
+    f.store.read(row, method)
+  })
+  idx_to_forecast <- which(lapply(stored_forecasts, is.null))
+  
+  if (exists("num.cores")) {
+    bf <- foreach::foreach(x = iterators::iter(all_ts[idx_to_forecast], by = "column"), .packages = c("forecast")) %dopar% {
+      f(x)
+    }
+  } else {
+    bf <- apply(all_ts[idx_to_forecast], 2, f)
+  }
+  for (i in 1:length(idx_to_forecast)) {
+    S_idx <- idx_to_forecast[i]
+    f.store.write(S[S_idx,], f, bf[[i]])
+    stored_forecasts[[S_idx]] <- bf[[i]]
+  }
+  stored_forecasts
+}
+
 #' function to forecast hts
 forecast.hts <- function(x, f){
   if (is.null(x$basef)) {
     all_ts <- x$bts %*% t(x$S)
     
-    if (exists("num.cores")) {
-      bf <- foreach::foreach(x = iterators::iter(all_ts, by = "column"), .packages = c("forecast")) %dopar% {
-        f(x)
-      }
-    } else {
-      bf <- apply(all_ts, 2, f)
-    }
+    bf <- fhts_helper(x$S, all_ts, f)
     
     x$basef <- unname(do.call(cbind, lapply(bf, function(x){x$basef})))
     x$resid <- unname(do.call(cbind, lapply(bf, function(x){x$resid})))
@@ -51,13 +68,7 @@ forecast.hts <- function(x, f){
   for (level in seq_along(x$nl)) {
     if (is.null(x$nl[[level]]$basef)) {
       all_nts <-x$bts %*% t(x$nl[[level]]$S)
-      if (exists("num.cores")) {
-        bf <- foreach::foreach(x = iterators::iter(all_nts, by = "column"), .packages = c("forecast")) %dopar% {
-          f(x)
-        }
-      } else {
-        bf <- apply(all_nts, 2, f)
-      }
+      bf <- fhts_helper(x$nl[[level]]$S, all_nts, f)
       x$nl[[level]]$basef <- unname(do.call(cbind, lapply(bf, function(x){x$basef})))
       x$nl[[level]]$resid <- unname(do.call(cbind, lapply(bf, function(x){x$resid})))
     }
