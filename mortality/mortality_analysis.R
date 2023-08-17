@@ -18,4 +18,3 @@ d <- d1 %>% add_row(d2) %>%
   ungroup() %>%
   arrange(total)
 
-d %>% filter(rf_method == "base")

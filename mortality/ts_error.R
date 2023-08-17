@@ -1,12 +1,21 @@
 rm(list = ls())
+
+batch <- 0
+path <- "mortality"
+bfmethod <- "arima"
 source("R/construct_hierarchy.R", chdir = T)
-library(Matrix)
 
 num.cores <- 8
 cl <- parallel::makeCluster(num.cores)
 doParallel::registerDoParallel(cl)
 
-data <- readRDS("mortality/data.rds")
+if (!file.exists(store_path)) {
+  stop("run configuration and base forecast first!")
+}
+
+BASEFORECAST_STORE <- readRDS(store_path)$bfstore
+output <- readRDS(store_path)$output
+data <- readRDS(store_path)$data
 
 
 # K-medoids
@@ -51,7 +60,7 @@ for (representator in c("ts", "error")) {
   }
 }
 
-saveRDS(output, "mortality/ts_error.rds")
+saveResult()
 
 
 

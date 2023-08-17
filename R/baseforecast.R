@@ -7,7 +7,7 @@ f.arima <- function(x){
 
 #' List to store the base forecast of aggregated time series
 #' Base forecast of new aggregation will be saved into this store.
-BASEFORECAST_STORE <- list(arima = list())
+
 
 #' @param x: row of S matrix
 #' @param method base forecast method

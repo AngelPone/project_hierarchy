@@ -1,28 +1,20 @@
-source("R/construct_hierarchy.R", chdir = T)
-library(Matrix)
+batch <- 0
+path <- "mortality"
+bfmethod <- "arima"
 
-mortality <- read.csv("data/mortality.csv")
-colnames(mortality) <- stringi::stri_replace_all_fixed(colnames(mortality), ".", "-")
-data <- hts(rbind(rep(1, 98), diag(98)), 
-            bts = unname(as.matrix(mortality))[1:240,],
-            tts = unname(as.matrix(mortality))[241:252,])
+source("R/construct_hierarchy.R", chdir = T)
+
 num.cores <- 6
 cl <- parallel::makeCluster(num.cores)
 doParallel::registerDoParallel(cl)
 
+if (!file.exists(store_path)) {
+  stop("run configuration and base forecast first!")
+}
 
-metrics <- c("mae", "rmse")
-
-# generate base forecast
-data <- forecast(data, f.arima)
-accs <- evaluate.hts(data, metrics, type = "base")
-output <- add_result(output, "", "", "", accs)
-
-# reconciliation without clustering
-data <- reconcile.all(data)
-accs <- evaluate.hts(data, metrics, type = "rf")
-output <- add_result(output, "", "", "", accs)
-
+BASEFORECAST_STORE <- readRDS(store_path)$bfstore
+output <- readRDS(store_path)$output
+data <- readRDS(store_path)$data
 
 # natural hierarchy
 S <- read.csv("data/S.csv", row.names = 1)
@@ -59,8 +51,7 @@ for (n_cluster in 3:10) {
                                                                     S = lapply(data$nl, function(x){ as(x$S, "sparseMatrix") })))
 }
 
-saveRDS(output, "mortality/output_base.rds")
-saveRDS(data, "mortality/data.rds")
+saveResult()
 
 
 

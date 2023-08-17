@@ -1,7 +1,22 @@
-output <- vector("list", 5)
-names(output) <- c("representator", "distance", "cluster", "accuracy", "other")
+library(Matrix)
 
-metrics <- c("rmse", "mae")
+create_new_output <- function() {
+  output <- vector("list", 5)
+  names(output) <- c("representator", "distance", "cluster", "accuracy", "other")
+  output
+}
+
+
+metrics <- c("mae", "rmse")
+store_path <- sprintf("%s/store_%s.rds", path, batch)
+bfmethod_func <- get(paste0("f.", bfmethod))
+
+saveResult <- function() {
+  saveRDS(list(bfstore = BASEFORECAST_STORE,
+               data = data,
+               output = output),
+          store_path)
+}
 
 add_result <- function(output, representotar, distance, 
                        cluster, accs, other = NULL) {

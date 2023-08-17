@@ -30,13 +30,19 @@ evaluate.hts <- function(x, metrics, type = c("base", "rf", "nl", "average")) {
         tmp
       })
     } else if(type == "nl") {
-      accs <- lapply(x$nl[[1]]$rf, function(rf){
-        tmp <- sapply(1:NCOL(tts), function(i){
-          metric_func(tts[, i], rf[, i], allts[,i])
+      accs <- list()
+      for (i in seq_along(x$nl)) {
+        accs[[i]] <- lapply(x$nl[[i]]$rf, function(rf){
+          tmp <- sapply(1:NCOL(tts), function(i){
+            metric_func(tts[, i], rf[, i], allts[,i])
+          })
+          tmp <- list(total = tmp[1], bottom = tmp[2:length(tmp)])
+          tmp
         })
-        tmp <- list(total = tmp[1], bottom = tmp[2:length(tmp)])
-        tmp
-      })
+      }
+      if (length(accs) == 1){
+        accs <- accs[[1]]
+      }
     } else if(type == "average") {
       accs <- list()
       for (rf_method in names(x$nl[[1]]$rf)) {
