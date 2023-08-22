@@ -16,6 +16,37 @@ cluster.random <- function(distance_mat, n_clusters) {
   S
 }
 
+cluster.nestedkmedoids <- function(distance_mat, n_clusters) {
+  
+  output <- list()
+  output[[1]] <- list(1:NROW(distance_mat))
+  
+  for (i in 1+seq_along(n_clusters)) {
+    output[[i]] <- list()
+    k <- 1
+    for (j in seq_along(output[[i-1]])) {
+      if (length(output[[i-1]][[j]]) <= n_clusters[i-1]) {
+        next
+      }
+      res <- pam(distance_mat[output[[i-1]][[j]], output[[i-1]][[j]]], k = n_clusters[i-1], diss=TRUE,
+          nstart = 10,
+          cluster.only = TRUE)
+      for (ij in 1:n_clusters[i-1]) {
+        output[[i]][[k]] <- output[[i-1]][[j]][which(res == ij)]
+        k <- k+1
+      }
+    }
+  }
+  
+  list(do.call(rbind, lapply(output[2:length(output)], function(x) {
+    do.call(rbind, lapply(x, function(g) {
+      S_row <- vector("numeric", NROW(distance_mat))
+      S_row[g] <- 1
+      S_row
+    }))
+  })))
+}
+
 
 #' kmedoids
 #' 
@@ -36,7 +67,7 @@ cluster.kmedoids <- function(distance_mat, n_clusters) {
     })
   }
   
-  grplst2Slst(output)
+  list(do.call(rbind, grplst2Slst(output)))
 }
 
 #' hierarchical clustering

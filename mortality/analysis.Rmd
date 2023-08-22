@@ -1,0 +1,148 @@
+---
+title: "mortality_analysis"
+author: "Bohan Zhang"
+date: "2023-08-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+# ts and error representator
+source("../R/construct_hierarchy.R", chdir = TRUE)
+
+store_all <- NULL
+for (batch in 0:11) {
+  store_all <- readRDS(paste0("store_", batch, ".rds"))$output %>%
+    output_pre() %>% mutate(batch = batch) %>%
+    rowwise() %>%
+    mutate(bottom_mean = mean(bottom)) %>%
+    ungroup() %>%
+    rbind(store_all)
+}
+```
+
+## Evaluation proceduce
+
+1. calculate the ratio between mae/rmse of reconciled forecasts and mae/rmse of base forecasts
+2. mae/rmse of the total, mean, max and min mae/rmse of bottom series
+3. summarised over specific domains
+
+## mint and wlsv vs ols and wlss
+
+```{r, include=FALSE}
+store_base <- store_all %>% filter(rf_method == "base", accuracy_method == "mae") %>%
+  rename(total_base = total, bottom_base = bottom) %>%
+  select(batch, total_base, bottom_base)
+
+mae_ratio <- store_all %>% filter(accuracy_method == "mae") %>%
+  left_join(store_base, by = "batch") %>% 
+  rowwise() %>%
+  mutate(total = total/total_base, bottom = list(c(bottom/bottom_base))) %>%
+  mutate(bottom_mean = mean(bottom), bottom_max = max(bottom),  bottom_min = min(bottom)) %>%
+  ungroup()
+
+store_base_rmse <- store_all %>% filter(rf_method == "base", accuracy_method == "rmse") %>%
+  rename(total_base = total, bottom_base = bottom) %>%
+  select(batch, total_base, bottom_base)
+
+
+rmse_ratio <- store_all %>% filter(accuracy_method == "rmse") %>%
+  left_join(store_base_rmse, by = "batch") %>% 
+  rowwise() %>%
+  mutate(total = total/total_base, bottom = list(c(bottom/bottom_base))) %>%
+  mutate(bottom_mean = mean(bottom), bottom_max = max(bottom),  bottom_min = min(bottom)) %>%
+  ungroup()
+```
+
+
+
+### OLS and structural scaling are more likely to produce more extreme results.
+
+```{r}
+mae_ratio %>% group_by(rf_method) %>% summarise(total= mean(total, na.rm=TRUE), bottom_max=mean(bottom_max, na.rm=TRUE), 
+                                                bottom_min=mean(bottom_min, na.rm=TRUE), bottom_mean=mean(bottom_mean, na.rm=TRUE))
+```
+```{r}
+rmse_ratio %>% group_by(rf_method) %>% summarise(total= mean(total, na.rm=TRUE), bottom_max=mean(bottom_max, na.rm=TRUE), 
+                                                bottom_min=mean(bottom_min, na.rm=TRUE), bottom_mean=mean(bottom_mean, na.rm=TRUE))
+```
+### On average, mint and wlss don't improve the bottom level, but improve the total level.
+
+
+### In general, the improvement of some series comes with the cost of some other series. It's very unlikely that reconciliation improves all the series.
+
+
+```{r}
+mae_ratio %>% filter(bottom_max <= 1.01, rf_method != "base") %>% select(representator, rf_method, distance, cluster, total, bottom_mean, bottom_max, bottom_min, batch) %>%
+  arrange(total)
+```
+```{r}
+rmse_ratio %>% filter(bottom_max <= 1.05, rf_method != "base") %>% select(representator, rf_method, distance, cluster, total, bottom_mean, bottom_max, bottom_min, batch) %>%
+  arrange(total)
+```
+
+```{r}
+rmse_ratio %>% filter(bottom_max <= 1.5, rf_method %in% c("ols", "wlss")) %>% select(representator, rf_method, distance, cluster, total, bottom_mean, bottom_max, bottom_min, batch) %>%
+  arrange(total)
+```
+
+### robustness: wlsv > mint > wlss > ols
+
+
+
+## K-medoids (only mint)
+
+
+```{r}
+rmse_ratio <- rmse_ratio %>% filter(rf_method == "mint") %>% select(-rf_method, -accuracy_method)
+mae_ratio <- mae_ratio %>% filter(rf_method == "mint") %>% select(-rf_method, -accuracy_method)
+```
+
+
+
+```{r}
+tmp <- rmse_ratio %>% filter(startsWith(cluster, "kmedoids")) %>%
+  rowwise() %>% 
+  mutate(n_middle = NROW(other$S)) %>%
+  select(representator, distance, cluster, total, bottom_mean, bottom_max, bottom_min, n_middle, batch) %>%
+  ungroup()
+```
+
+
+### distance:
+
+```{r}
+tmp %>% group_by(distance) %>% summarise_at(c("total", "bottom_max", "bottom_mean", "bottom_min"), c(mean=function(x){mean(x, na.rm=TRUE)}))
+```
+
+### representator: error > ts
+
+```{r}
+rmse_ratio %>% group_by(representator) %>% summarise_at(c("total", "bottom_max", "bottom_mean", "bottom_min"), c(mean=function(x){mean(x, na.rm=TRUE)}, min=function(x){min(x, na.rm=TRUE)}, max = function(x){max(x, na.rm=TRUE)}))
+```
+
+```{r}
+tmp %>% group_by(n_middle) %>% summarise(total=mean(total, na.rm=TRUE), bottom_mean = mean(bottom_mean, na.rm=TRUE), bottom_max = mean(bottom_max, na.rm=TRUE), bottom_min = mean(bottom_mean, na.rm=TRUE))
+```
+
+
+```{r}
+
+rmse_ratio %>% filter(cluster == "natural", batch == 0) %>% group_by(cluster)  %>% summarise(total=mean(total, na.rm=TRUE), bottom_mean = mean(bottom_mean, na.rm=TRUE), bottom_max = mean(bottom_max, na.rm=TRUE), bottom_min = mean(bottom_min, na.rm=TRUE)) 
+
+```
+
+
+```{r}
+rmse_ratio %>% filter(cluster == "random-single-natural") %>% arrange(total, bottom_mean) %>% filter(batch == 0)
+```
+
+
+
+
+
+
+
+
+

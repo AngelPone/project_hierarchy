@@ -1,7 +1,12 @@
 # configuration
-batch <- 0
+args <- commandArgs(trailingOnly = TRUE)
+batch <- as.integer(args[[1]])
 path <- "mortality"
 bfmethod <- "arima"
+num.cores <- 8
+cl <- parallel::makeCluster(num.cores)
+doParallel::registerDoParallel(cl)
+
 source("R/construct_hierarchy.R", chdir = T)
 
 
@@ -23,8 +28,7 @@ output <- create_new_output()
 
 
 ## bottom and total forecast
-data <- forecast(data, bfmethod_func)
-
+data <- forecast(data, bfmethod)
 accs <- evaluate.hts(data, metrics, type = "base")
 output <- add_result(output, "", "", "", accs)
 data <- reconcile.all(data)
@@ -32,9 +36,5 @@ accs <- evaluate.hts(data, metrics, type = "rf")
 output <- add_result(output, "", "", "", accs)
 
 saveResult()
-
-
-
-
 
 

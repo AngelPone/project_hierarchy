@@ -1,6 +1,7 @@
 library(forecast)
 library(cluster)
 library(foreach)
+library(dplyr)
 source("representator.R")
 source("distance.R")
 source("clustering.R")
@@ -33,33 +34,36 @@ hts <- function(S, bts, tts) {
 
 #' function to iterator over S, find the forecast store and return the forecast
 #' 
-fhts_helper <- function(S, all_ts, f) {
+fhts_helper <- function(S, all_ts, f_str) {
+  f <- get(paste0("f.", f_str))
   stored_forecasts <- lapply(iterators::iter(S, by = "row"), function(row){
-    f.store.read(row, method)
+    f.store.read(row, f_str)
   })
-  idx_to_forecast <- which(lapply(stored_forecasts, is.null))
+  idx_to_forecast <- which(sapply(stored_forecasts, is.null))
   
   if (exists("num.cores")) {
-    bf <- foreach::foreach(x = iterators::iter(all_ts[idx_to_forecast], by = "column"), .packages = c("forecast")) %dopar% {
+    bf <- foreach::foreach(x = iterators::iter(all_ts[,idx_to_forecast], by = "column"), .packages = c("forecast")) %dopar% {
       f(x)
     }
   } else {
-    bf <- apply(all_ts[idx_to_forecast], 2, f)
+    bf <- apply(all_ts[,idx_to_forecast, drop=FALSE], 2, f)
   }
-  for (i in 1:length(idx_to_forecast)) {
+  for (i in seq_along(idx_to_forecast)) {
     S_idx <- idx_to_forecast[i]
-    f.store.write(S[S_idx,], f, bf[[i]])
+    f.store.write(S[S_idx,], f_str, bf[[i]])
     stored_forecasts[[S_idx]] <- bf[[i]]
   }
   stored_forecasts
 }
 
 #' function to forecast hts
-forecast.hts <- function(x, f){
+#' @param x hts
+#' @param f_str baseforecast method string
+forecast.hts <- function(x, f_str){
   if (is.null(x$basef)) {
     all_ts <- x$bts %*% t(x$S)
     
-    bf <- fhts_helper(x$S, all_ts, f)
+    bf <- fhts_helper(x$S, all_ts, f_str)
     
     x$basef <- unname(do.call(cbind, lapply(bf, function(x){x$basef})))
     x$resid <- unname(do.call(cbind, lapply(bf, function(x){x$resid})))
@@ -68,9 +72,9 @@ forecast.hts <- function(x, f){
   for (level in seq_along(x$nl)) {
     if (is.null(x$nl[[level]]$basef)) {
       all_nts <-x$bts %*% t(x$nl[[level]]$S)
-      bf <- fhts_helper(x$nl[[level]]$S, all_nts, f)
-      x$nl[[level]]$basef <- unname(do.call(cbind, lapply(bf, function(x){x$basef})))
-      x$nl[[level]]$resid <- unname(do.call(cbind, lapply(bf, function(x){x$resid})))
+      bf <- fhts_helper(x$nl[[level]]$S, all_nts, f_str)
+      x$nl[[level]]$basef <- unname(do.call(cbind, lapply(bf, function(x){unclass(x$basef)})))
+      x$nl[[level]]$resid <- unname(do.call(cbind, lapply(bf, function(x){unclass(x$resid)})))
     }
   }
   x
@@ -202,19 +206,4 @@ build_level <- function(
 #'   list(grplst)
 #' }
 
-# residuals.hts <- function(x){
-#   cbind(x$resid, do.call(cbind, lapply(x$nl, function(g){ g$resid })))
-# }
 
-# 1. ~~check seasonality ts(x)~~
-# 2. debug
-# 3. natural hierarchy
-# 4. random hierarchy
-# 5. wlss
-# 6. number of clusters
-# 7. DTW
-# 8. feature
-# 9. MAE
-# more ideas
-#  1. nature hierarchy with random series position (random vs natural)
-#  2. simplify the natural hierarchy (random vs simplified vs data-driven)

@@ -92,75 +92,6 @@ colnames(S) <- ICDcodes$ICDcodes[ICDcodes$bottom_idx>0]
 combine_cols <- dt %>% group_by(desc) %>% summarise(n_suppressed = sum(deaths == "Suppressed")) %>%
   filter(n_suppressed > 0) %>% left_join(ICDcodes %>% rename(desc = ICDcodes))
 
-# All causes have missing values are leaf causes, except Other acute lower respiratory infections (J20-J22,U04)
-
-# find_parent <- function(name){
-#   preces <- names(which(S[, name] == 1))
-#   level <- ICDcodes$level[ICDcodes$ICDcodes == name]
-#   for (prece in preces) {
-#     if (ICDcodes$level[ICDcodes$ICDcodes == prece] == level -1) {
-#       return(prece)
-#     }
-#   }
-# }
-# 
-# combine_cols <- combine_cols %>% rowwise() %>% 
-#   mutate(parent = ifelse(level == 1, "total", find_parent(desc)))
-
-
-# combine_causes <- function(x){
-#   
-#   # combine  
-#   Other <- combine_cols$desc[combine_cols$level == 1]
-#   
-#   find_all_children <- function(Other) {
-#     for (i in Other) {
-#       idx <- which(ICDcodes$ICDcodes == i)
-#       if (!ICDcodes$leaf[idx]) {
-#         children <- find_leaves(idx)
-#         Other <- c(Other, children)
-#       }
-#     }
-#     return(Other)
-#   }
-#   
-#   Other <- find_all_children(Other)
-#   
-#   # remove all the children
-#   x <- x %>% filter(!(desc %in% Other))
-#   
-#   for (i in unique(combine_cols$parent)) {
-#     if (i == "total") next
-#     name <- paste0("Combine ", i)
-#     nameToRemove <- find_all_children(combine_cols %>% filter(parent == i) %>% pull(desc))
-#     x <- x %>% filter(!(desc %in% nameToRemove))
-#     parentValue <- dt %>% filter(desc == i) %>% pull(deaths)
-#     otherChild <- setdiff(colnames(S)[which(S[i,] == 1)], nameToRemove)
-#     
-#     
-#   }
-#   
-#   for (i in unique(combine_cols$parent)) {
-#     idx <- which(ICDcodes$ICDcodes == i)
-#     allChildren <- colnames(S)[find_leaves(idx)]
-#     tmp_dt <- dt %>% filter(desc %in% allChildren) %>%
-#       mutate(combine = if_else(desc %in% allChildren, as.integer(deaths), 0),
-#              combine_name = if_else(desc %in% allChildren, paste("Combine", i), desc)) %>%
-#       mutate(total = x$deaths[x$desc == i]) %>% 
-#       group_by(combine_name) %>%
-#       summarise(deaths = sum(combine)) %>%
-#       mutate(deaths = if_else(starts_with(desc, "Combine")))
-#       
-#       
-#   }
-#   
-#   
-#   
-#   
-#   
-#   
-# }
-
 find_leaves <- function(name) {
   S_row <- S[name,]
   if (sum(S_row) == 1) {
@@ -327,6 +258,7 @@ rownames(S) <- data.frame(desc = rownames(S)) %>%
 
 colnames(S)[NCOL(S)] <- "Combine-GR113-097"
 rownames(S)[NROW(S)] <- "Combine-GR113-097"
+
 
 write.csv(output, "data/mortality.csv", row.names = FALSE)
 write.csv(S, "data/S.csv")

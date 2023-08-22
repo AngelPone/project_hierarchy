@@ -6,15 +6,11 @@ create_new_output <- function() {
   output
 }
 
-
-metrics <- c("mae", "rmse")
-store_path <- sprintf("%s/store_%s.rds", path, batch)
-bfmethod_func <- get(paste0("f.", bfmethod))
-
 saveResult <- function() {
   saveRDS(list(bfstore = BASEFORECAST_STORE,
                data = data,
-               output = output),
+               output = output,
+               features = FEATURES),
           store_path)
 }
 
@@ -42,3 +38,11 @@ output_pre <- function(output) {
     tidyr::unnest_longer(accuracy, values_to = "accuracy", indices_to = "rf_method") %>% 
     tidyr::unnest_wider(accuracy)
 }
+
+metrics <- c("mae", "rmse")
+if (exists("path")) {
+  store_path <- sprintf("%s/store_%s.rds", path, batch)
+}
+
+
+

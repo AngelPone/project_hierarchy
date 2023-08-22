@@ -13,7 +13,6 @@ f.arima <- function(x){
 #' @param method base forecast method
 f.store.read <- function(x, method) {
   x_str <- do.call(paste0, as.list(x))
-  method_str <- as.character(substitute(method))
   if (!(x_str %in% names(BASEFORECAST_STORE[[method]]))) {
     return(NULL)
   }
@@ -22,7 +21,6 @@ f.store.read <- function(x, method) {
 
 f.store.write <- function(x, method, fcasts) {
   x_str <- do.call(paste0, as.list(x))
-  method_str <- as.character(substitute(method))
-  BASEFORECAST_STORE[[method]][[x_str]] <- fcasts
+  BASEFORECAST_STORE[[method]][[x_str]] <<- fcasts
 }
 
