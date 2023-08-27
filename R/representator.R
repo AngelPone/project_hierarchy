@@ -1,16 +1,24 @@
 representator.ts <- function(x) {
   apply(x$bts, 2, function(x){
-    x / sd(x)
+    (x - mean(x)) / sd(x)
   })
 }
 
+representator.forecast <- function(x) {
+  apply(unclass(x$basef), 2, function(x){
+    if (sd(x) < 1e-4) {
+      return (vector("numeric", length(x)))
+    }
+    (x - mean(x)) / sd(x)
+  })
+}
 
 representator.error <- function(x){
   stopifnot(!is.null(x$basef))
   n <- NROW(x$S)
   m <- NCOL(x$S)
   apply(x$resid[,(n-m+1):n], 2, function(x) {
-    x / sd(x)
+    (x - mean(x)) / sd(x)
   })
 }
 
@@ -34,16 +42,16 @@ representator.ts.features <- function(x) {
   if (is.null(FEATURES)) {
     features.compute(x)
   }
-  apply(FEATURES$ts, 1, function(g) {
-    g / sd(g)
-  })
+  t(apply(FEATURES$ts, 1, function(g) {
+    (g - mean(g)) / sd(g)
+  }))
 }
 
 representator.error.features <- function(x) {
   if (is.null(FEATURES)) {
     features.compute(x)
   }
-  apply(FEATURES$error, 1, function(g) {
-    g / sd(g)
-  })
+  t(apply(FEATURES$error, 1, function(g) {
+    (g - mean(g)) / sd(g)
+  }))
 }

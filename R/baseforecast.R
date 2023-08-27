@@ -1,6 +1,9 @@
 library(forecast)
 
 f.arima <- function(x){
+  if(length(x) == 1) {
+    stop("length == 1")
+  }
   mdl <- auto.arima(ts(x, frequency = 12))
   list(basef=forecast(mdl, h=12)$mean, resid=residuals(mdl))
 }

@@ -11,3 +11,4 @@ distance.dtw <- function(x, y) { dtw(x, y, distance.only = TRUE)$distance }
 #' Correlation
 distance.negcor <- function(x, y) { cov(x, y) + 1 }
 distance.cor <- function(x, y) { abs(cov(x, y) - 1) }
+distance.uncorrelation <- function(x, y) { abs(cov(x, y)) }

@@ -4,6 +4,8 @@ batch <- as.integer(args[[1]])
 path <- "mortality"
 bfmethod <- "arima"
 num.cores <- 8
+set.seed(42)
+
 cl <- parallel::makeCluster(num.cores)
 doParallel::registerDoParallel(cl)
 
@@ -34,7 +36,7 @@ output <- add_result(output, "", "", "", accs)
 data <- reconcile.all(data)
 accs <- evaluate.hts(data, metrics, type = "rf")
 output <- add_result(output, "", "", "", accs)
-
+FEATURES <- NULL
 saveResult()
 
 

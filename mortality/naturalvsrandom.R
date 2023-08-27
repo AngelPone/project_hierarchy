@@ -3,6 +3,7 @@ args <- commandArgs(trailingOnly = TRUE)
 batch <- as.integer(args[[1]])
 path <- "mortality"
 bfmethod <- "arima"
+set.seed(42)
 
 source("R/construct_hierarchy.R", chdir = T)
 
@@ -17,6 +18,7 @@ if (!file.exists(store_path)) {
 BASEFORECAST_STORE <- readRDS(store_path)$bfstore
 output <- readRDS(store_path)$output
 data <- readRDS(store_path)$data
+FEATURES <- readRDS(store_path)$features
 
 # natural hierarchy
 S <- read.csv("data/S.csv", row.names = 1)

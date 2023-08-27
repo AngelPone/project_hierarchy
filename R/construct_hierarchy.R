@@ -42,7 +42,7 @@ fhts_helper <- function(S, all_ts, f_str) {
   idx_to_forecast <- which(sapply(stored_forecasts, is.null))
   
   if (exists("num.cores")) {
-    bf <- foreach::foreach(x = iterators::iter(all_ts[,idx_to_forecast], by = "column"), .packages = c("forecast")) %dopar% {
+    bf <- foreach::foreach(x = iterators::iter(all_ts[,idx_to_forecast,drop=FALSE], by = "column"), .packages = c("forecast")) %dopar% {
       f(x)
     }
   } else {
@@ -146,7 +146,7 @@ build_level <- function(
   }
   
   for (i in seq_along(nl)) {
-    nl[[i]]$S <-nl[[i]]$S[which(!(apply(nl[[i]]$S, 1, concat_str) %in% orig_rows)),]
+    nl[[i]]$S <-nl[[i]]$S[which(!(apply(nl[[i]]$S, 1, concat_str) %in% orig_rows)),,drop=FALSE]
   }
   
   nl <- Filter(function(x){NROW(x$S) > 0}, nl)
