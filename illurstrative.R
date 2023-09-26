@@ -2,15 +2,6 @@
 
 S <- rbind(c(1,1,1), c(0, 1, 1), diag(3))
 
-cov_mat <- function(x) {
-  output <- matrix(0, 5, 5)
-  diag(output) <- c(1, 1, 1, 1, 1)
-  output[4, 5] <- x
-  output[5, 4] <- x
-  
-  
-}
-
 
 weights <- function(W) {
   W_inv <- solve(W)

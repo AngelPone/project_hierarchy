@@ -69,6 +69,12 @@ forecast.hts <- function(x, f_str){
     x$resid <- unname(do.call(cbind, lapply(bf, function(x){x$resid})))
   }
   
+  if (!is.null(x$nl)) {
+    new_S <- do.call(rbind, lapply(x$nl, function(g){ g$S }))
+    all_nts <- x$bts %*% t(new_S)
+    bf <- fhts_helper(new_S, all_nts, f_str)
+  }
+  
   for (level in seq_along(x$nl)) {
     if (is.null(x$nl[[level]]$basef)) {
       all_nts <-x$bts %*% t(x$nl[[level]]$S)
