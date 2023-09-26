@@ -1,0 +1,594 @@
+---
+title: "Constructing hierarchies"
+author: "Bohan Zhang"
+date: "2023-09-26"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+
+# Illustrative example
+
+Consider a hierarchy with $4$ time series A,C,D,E, $A=C+D+E$. We consider
+two kind of aggregation $B_1 = D+E$, $B_2 = C+D$.
+
+```{r, include=FALSE, echo=FALSE}
+S <- rbind(c(1,1,1), c(0, 1, 1), diag(3))
+
+
+weights <- function(W) {
+  W_inv <- solve(W)
+  S %*% solve(t(S) %*% W_inv %*% S, t(S) %*% W_inv)
+}
+
+
+weights_plot <- function(offdiag, title = "Setting 1") {
+  
+  
+  construct_W <- function(offdiag, x) {
+    m <- matrix(0, 5, 5)
+    m[lower.tri(m)] <- offdiag
+    m[upper.tri(m)] <- t(m)[upper.tri(t(m))]
+    diag(m) <- c(1, 1, 1, 1, 1)
+    m[4, 5] <- x
+    m[5, 4] <- x
+    diag(sqrt(c(3, 2.1, 0.9, 1.05, 1.04))) %*% m %*% diag(sqrt(c(3, 2.1, 0.9, 1.05, 1.04)))
+  }
+  print(construct_W(offdiag, 0.5))
+  
+  weights_all <- vector("list", 5)
+  
+  for (i in seq(-0.99, 0.99, by = 0.01)) {
+    W <- construct_W(offdiag, i)
+    weight_i <- weights(W)
+    for (j in 1:5){
+      weights_all[[j]] <- rbind(weights_all[[j]], c(i, weight_i[,j]))
+    }
+  }
+  library(dplyr)
+  for (j in 1:5) {
+    colnames(weights_all[[j]]) <- c("cor", "A", "B", "C", "D", "E")
+    weights_all[[j]] <- as_tibble(weights_all[[j]]) %>%
+      mutate(weights_col = c("A", "B", "C", "D", "E")[j])
+  }
+  
+  weights_all <- do.call(rbind, weights_all)
+  
+  weights_all <- weights_all %>% tidyr::pivot_longer(names_to = "weights_row", cols = c("A", "B", "C", "D", "E"))
+  
+  library(ggplot2)
+  
+  ggplot(weights_all)  +
+    geom_line(mapping = aes(x = cor, y = value, color = weights_row, group=weights_row)) +
+    facet_wrap(~ weights_col) +
+    ggtitle(title)
+}
+```
+
+
+## Trend of weights
+
+Consider the hierarchy $A, B_1, C, D, E$, $B_1 = D+E$ and variance $[3, 2.1, 0.9, 1.05, 1.04]'$
+
+### Trend of weights: Scenario 1
+
+All the correlation coefficients are $0$.
+
+$$
+\begin{bmatrix}
+1 & 0 & 0 & 0 & 0 \\
+0 &1 & 0 & 0 & 0 \\
+0 & 0 & 1 & 0 & 0 \\
+0 & 0 & 0 & 1 & x \\
+0 & 0 & 0 & x & 1
+\end{bmatrix}
+$$
+
+The trends of weights:
+
+```{r, echo=FALSE, message=FALSE, results='hide'}
+weights_plot(0)
+```
+
+### Trend of weights: Scenario 2
+
+All the correlation coefficients are uniformly drawn from $[0, 0.5]$.
+
+```{r, echo=FALSE, message=FALSE}
+offdiag <- runif(10, 0, 0.5)
+weights_plot(offdiag, title = "Setting 2")
+```
+
+
+
+### Trend of weights: Scenario 3
+
+All the correlation coefficients are uniformly drawn from $[-0.5, 0]$.
+
+```{r, echo=FALSE, message=FALSE}
+offdiag <- runif(10, -0.5, 0)
+weights_plot(offdiag, title = "Setting 3")
+```
+
+### Trend of weights: Scenario 4
+
+All the correlation coefficients are uniformly drawn from $[-0.5, 0.5]$.
+
+```{r, echo=FALSE, message=FALSE}
+offdiag <- runif(10, -0.5, 0.5)
+weights_plot(offdiag, title = "Setting 4")
+```
+
+
+
+
+### Conclusion
+
+Overall, the weights for Series $B_1, D, E, A$ from Series $B_1$ ($G_{B_1,B_1}, G_{D,B_1}, G_{E,B_1}, G_{A, B_1}$) increase as the correlation between $D$ and $E$ increase. (See the panel B in each figure)
+
+
+
+## forecast accuracy of two different grouping method: B1 and B2
+
+```{r, echo=FALSE, message=FALSE}
+source("R/reconciliation.R")
+library(forecast)
+step2 <- function(Wb) {
+  
+  errors <- MASS::mvrnorm(1000, rep(0, 3), Wb)
+  
+  AR <- diag(c(0, 0.3, 0.4))
+  series <- matrix(0, 1001, 3)
+  for (i in 2:1001) {
+    series[i,] <- AR %*% series[i-1, ] + errors[i-1,]
+  }
+  series <- series[102:1001,]
+  series[,1] <- seq(from=1, to=5, length = 900) + series[,1]
+  series[,2] <- seq(from=1, to=5, length = 900) + series[,2]  
+  
+  plot_series <- ts(series)
+  colnames(series) <- c("C", "D", "E")
+  plot(plot_series)
+  
+  S2 <- S
+  S2[2,] <- c(1, 1, 0)
+  
+  series2 <- series %*% t(S2)
+  series <- series %*% t(S)
+  # Cross Validation
+  init_window <- 800
+  step <- 10
+  
+  mat2list <- function(x){
+    r <- lapply(seq_len(ncol(x)), function(i) unname(x[,i]))
+    names(r) <- colnames(x)
+    r
+  } 
+  accs <- vector("list", 3)
+  names(accs) <- c("base", "mint", "mint2")
+  for (i in 1:10) {
+    train <- series[1:(790+10*i),]
+    test <- series[(791+10*i):(800+10*i),]
+    
+    fcasts <- lapply(iterators::iter(train, by="col"), function(s){
+      mdl <- forecast(auto.arima(s, seasonal = FALSE), h=10)
+      list(resid = as.numeric(residuals(mdl)), fcasts = as.numeric(mdl$mean))
+    })
+    
+    resids <- do.call(cbind, lapply(fcasts, function(x){
+      x$resid
+    }))
+    fcasts <- do.call(cbind, lapply(fcasts, function(x){
+      x$fcasts
+    }))
+    
+    fcasts_B2 <- forecast(auto.arima(series2[1:(790+10*i), 2], seasonal = FALSE), h=10)
+    resids2 <- resids
+    resids2[,2] <- as.numeric(residuals(fcasts_B2))
+    fcasts2 <- fcasts
+    fcasts2[,2] <- as.numeric(fcasts_B2$mean)
+    
+    
+    reconf <- reconcile.mint(S, fcasts, resids)
+    reconf2 <- reconcile.mint(S2, fcasts2, resids2)
+    
+    rmse <- function(x, y) { 
+      r <- sapply(c(1, 3, 4, 5), function(i){
+        sqrt(mean((x[,i]-y[,i])^2))
+      })
+      names(r) <- c("A", "C", "D", "E")
+      r
+    }
+    accs$base <- rbind(accs$base, rmse(fcasts, test))
+    accs$mint <- rbind(accs$mint, rmse(reconf, test))
+    accs$mint2 <- rbind(accs$mint2, rmse(reconf2, test))
+  }
+  accs$base <- mat2list(accs$base)
+  accs$mint <- mat2list(accs$mint)
+  accs$mint2 <- mat2list(accs$mint2)
+  as_tibble(accs) %>% mutate(names = c("A", "C", "D", "E")) %>% tidyr::unnest(cols = c("base", "mint", "mint2"))
+}
+```
+
+
+Simulation procedure:
+
+1. produce time series
+2. test reconciliation accuracy for $B_1$ hierarchy and $B_2$ hierarchy through CV.
+
+$$
+\begin{bmatrix}
+y_{C,t} \\ y_{D,t} \\ y_{E,t}
+\end{bmatrix} = \begin{bmatrix}0.0055 \\ 0.0055 \\ 0\end{bmatrix}t + \begin{bmatrix}
+0 & 0 & 0 \\
+0 & 0.3 & 0 \\
+0 & 0 & 0.4
+\end{bmatrix} \begin{bmatrix}
+y_{C,t-1} \\ y_{D,t-1} \\ y_{E,t-1}
+\end{bmatrix} + \begin{bmatrix}
+e_{C,t} \\ e_{D,t} \\ e_{E,t}
+\end{bmatrix}
+$$
+
+$\boldsymbol{e}_t$ has the following covariance matrix
+
+$$
+\begin{bmatrix}
+1 & 0 & 0 \\
+0 & 1 & x \\
+0 & x & 1 \\
+\end{bmatrix}
+$$
+
+
+### x=0.9
+
+```{r, message=FALSE, echo=FALSE}
+W <- diag(3)
+W[2,3] <- 0.9
+W[3,2] <- 0.9
+r1 <- step2(W)
+r1 %>% group_by(names) %>% summarise_all(mean)
+```
+
+
+### x=-0.9
+
+```{r, message=FALSE, echo=FALSE}
+W <- diag(3)
+W[2,3] <- -0.9
+W[3,2] <- -0.9
+r1 <- step2(W)
+r1 %>% group_by(names) %>% summarise_all(mean)
+```
+
+
+
+## Mortality
+
+
+```{r, echo=FALSE, message=FALSE}
+
+library(dplyr)
+library(tidyr)
+
+# ts and error representator
+source("R/construct_hierarchy.R", chdir = TRUE)
+
+rf_method <- "mint"
+accuracy_method <- "rmse"
+
+
+# read all the results
+store_all <- NULL
+for (batch in 0:11) {
+  store_all <- readRDS(paste0("mortality/store_", batch, ".rds"))$output %>%
+    output_pre() %>% mutate(batch = batch) %>%
+    filter(rf_method == .env$rf_method, accuracy_method == .env$accuracy_method) %>%
+    dplyr::select(-rf_method, -accuracy_method) %>%
+    rbind(store_all)
+}
+
+store_all <- store_all %>% rowwise() %>%
+  mutate(values = list(c(total, bottom))) %>% ungroup() %>%
+  dplyr::select(-total, -bottom)
+
+## remove single random
+store_all <- store_all %>% filter(!startsWith(cluster, "random-single"))
+
+# store_all %>% group_by(representator, distance, cluster) %>% tally() %>%
+#   pull(n) %>% table()
+
+## combine the results of 12 batches for one clustering method
+
+store_all <- store_all %>% select(-other) %>% nest(values = c(batch, values)) %>%
+  mutate_at("values", purrr::map, function(x){
+    x <- arrange(x, batch)
+    do.call(c, x$values)
+  })
+
+## convert the tibble to a data.frame used for comparing ranks
+store_mat <- do.call(cbind, store_all$values)
+store_rank <- apply(store_mat, 1, rank) %>% t() %>% colMeans()
+store_all$rank <- store_rank
+
+## MCB test
+mcb <- function(x) {
+  tsutils::nemenyi(x, plottype = "vmcb")
+}
+
+method_desc <- function(row){
+  print(sprintf("representator: %s, distance: %s, cluster: %s", 
+                store_all$representator[row],
+                store_all$distance[row],
+                store_all$cluster[row]))
+}
+```
+
+### Overall rank
+
+
+```{r}
+mcb(store_mat)
+```
+
+```{r}
+store_all %>% arrange(rank)
+```
+
+
+### representator rank
+
+```{r}
+# representator rank
+representator_summarise <- store_all %>% filter(distance != "") %>%
+  nest(values = c(representator, values, rank)) %>%
+  mutate_at("values", purrr::map, function(x){
+    x$rank <- do.call(cbind, x$values) %>% apply(1, rank) %>%
+      t() %>% colMeans()
+    x %>% select(-values) %>%
+      pivot_wider(names_from = "representator", values_from = "rank")
+  }) %>%
+  unnest("values")
+
+
+representators <- c("error", "ts", "error.features", "ts.features", "forecast")
+
+## in most cases, error is the best
+representator_summarise %>% rowwise() %>%
+  mutate(min = representators[which.min(c(error, ts, error.features, ts.features, forecast))]) %>%
+  pull(min) %>%
+  table()
+
+## only in one case, error is the worst
+representator_summarise %>% rowwise() %>%
+  mutate(max = representators[which.max(c(error, ts, error.features, ts.features, forecast))]) %>%
+  pull(max) %>%
+  table()
+mcb(representator_summarise %>% select(representators))
+
+
+# no hierarchy is not good: 391 / 428
+rank(store_all$rank)[1]
+
+# natural hierarchy is not bad: 72/428
+rank(store_all$rank)[2]
+
+# random versus random natural versus natural
+
+tmp <- store_all %>% filter(distance == "")
+tmp$rank <- do.call(cbind, tmp$values) %>% apply(1, rank) %>%
+  t() %>% colMeans()
+
+## 1. all the averaged random hierarchies beat no hierarchy
+## 2. deep and wide hierarchy wins
+## 3. average of more hierarchies does not obtain better results. 
+##   Some really bad hierarchies destroy the results. 
+##.  Deeper hierarchies have the ability to mitigate the affect of bad series
+
+
+```
+
+
+### cluster rank
+```{r}
+# cluster rank
+cluster_summarise <- store_all %>% filter(distance != "") %>%
+  nest(values = c(cluster, values, rank)) %>%
+  mutate_at("values", purrr::map, function(x){
+    x$rank <- do.call(cbind, x$values) %>% apply(1, rank) %>%
+      t() %>% colMeans() %>% rank()
+    x %>% select(-values) %>%
+      pivot_wider(names_from = "cluster", values_from = "rank")
+  }) %>%
+  unnest("values")
+
+
+cluster_summarise %>% select(-c(representator, distance)) %>%
+  mcb()
+
+## 1. kmedoids unnested is really bad
+## 2. hcluster with single linkage is bad
+## 3. nested kmedoids performs really well, which forms a natural-like unbalanced hierarchy.
+```
+
+
+### distance rank
+
+```{r}
+distance_summarise <- store_all %>% filter(distance != "") %>%
+  nest(values = c(distance, values, rank)) %>%
+  mutate_at("values", purrr::map, function(x){
+    x$rank <- do.call(cbind, x$values) %>% apply(1, rank) %>%
+      t() %>% colMeans() %>% rank()
+    x %>% select(-values) %>%
+      pivot_wider(names_from = "distance", values_from = "rank")
+  }) %>%
+  unnest("values")
+distance_summarise %>% select(-c(representator, cluster)) %>%
+  mcb()
+
+distances <- c("euclidean", "dtw", "negcor", "cor", "uncorrelation")
+distance_summarise %>% rowwise() %>%
+  mutate(max = distances[which.max(c(euclidean, dtw, negcor, cor, uncorrelation))]) %>%
+  pull(max) %>%
+  table()
+distance_summarise %>% rowwise() %>%
+  mutate(min = distances[which.min(c(euclidean, dtw, negcor, cor, uncorrelation))]) %>%
+  pull(min) %>%
+  table()
+```
+
+
+
+## Tourism
+
+```{r, include=FALSE, echo=FALSE}
+store_all <- NULL
+for (batch in 0:8) {
+  store_all <- readRDS(paste0("tourism/store_", batch, ".rds"))$output %>%
+    output_pre() %>% mutate(batch = batch) %>%
+    filter(rf_method == .env$rf_method, accuracy_method == .env$accuracy_method) %>%
+    dplyr::select(-rf_method, -accuracy_method) %>%
+    rbind(store_all)
+}
+
+store_all <- store_all %>% rowwise() %>%
+  mutate(values = list(c(total, bottom))) %>% ungroup() %>%
+  dplyr::select(-total, -bottom)
+
+## remove single random
+store_all <- store_all %>% filter(!startsWith(cluster, "random-single"))
+
+# store_all %>% group_by(representator, distance, cluster) %>% tally() %>%
+#   pull(n) %>% table()
+
+## combine the results of 12 batches for one clustering method
+
+store_all <- store_all %>% dplyr::select(-other) %>% nest(values = c(batch, values)) %>%
+  mutate_at("values", purrr::map, function(x){
+    x <- arrange(x, batch)
+    do.call(c, x$values)
+  })
+
+## convert the tibble to a data.frame used for comparing ranks
+store_mat <- do.call(cbind, store_all$values)
+store_rank <- apply(store_mat, 1, rank) %>% t() %>% colMeans()
+store_all$rank <- store_rank
+```
+
+
+```{r}
+mcb(store_mat)
+```
+```{r}
+store_all %>% arrange(rank)
+```
+
+### representator rank
+
+```{r, message=FALSE}
+# representator rank
+representator_summarise <- store_all %>% filter(distance != "") %>%
+  nest(values = c(representator, values, rank)) %>%
+  mutate_at("values", purrr::map, function(x){
+    x$rank <- do.call(cbind, x$values) %>% apply(1, rank) %>%
+      t() %>% colMeans()
+    x %>% dplyr::select(-values) %>%
+      pivot_wider(names_from = "representator", values_from = "rank")
+  }) %>%
+  unnest("values")
+
+
+representators <- c("error", "ts", "error.features", "ts.features", "forecast")
+
+## in most cases, error is the best
+representator_summarise %>% rowwise() %>%
+  mutate(min = representators[which.min(c(error, ts, error.features, ts.features, forecast))]) %>%
+  pull(min) %>%
+  table()
+
+## only in one case, error is the worst
+representator_summarise %>% rowwise() %>%
+  mutate(max = representators[which.max(c(error, ts, error.features, ts.features, forecast))]) %>%
+  pull(max) %>%
+  table()
+mcb(representator_summarise %>% dplyr::select(all_of(representators)))
+
+
+# no hierarchy
+rank(store_all$rank)[which(store_all$cluster == "")]
+
+# natural hierarchy
+rank(store_all$rank)[which(store_all$cluster == "natural")]
+
+# random versus random natural versus natural
+
+tmp <- store_all %>% filter(distance == "")
+tmp$rank <- do.call(cbind, tmp$values) %>% apply(1, rank) %>%
+  t() %>% colMeans()
+
+## 1. all the averaged random hierarchies beat no hierarchy
+## 2. deep and wide hierarchy wins
+## 3. average of more hierarchies does not obtain better results. 
+##   Some really bad hierarchies destroy the results. 
+##.  Deeper hierarchies have the ability to mitigate the affect of bad series
+
+
+```
+
+
+### cluster rank
+```{r}
+# cluster rank
+cluster_summarise <- store_all %>% filter(distance != "") %>%
+  nest(values = c(cluster, values, rank)) %>%
+  mutate_at("values", purrr::map, function(x){
+    x$rank <- do.call(cbind, x$values) %>% apply(1, rank) %>%
+      t() %>% colMeans() %>% rank()
+    x %>% dplyr::select(-values) %>%
+      pivot_wider(names_from = "cluster", values_from = "rank")
+  }) %>%
+  unnest("values")
+
+
+cluster_summarise %>% dplyr::select(-c(representator, distance)) %>%
+  mcb()
+
+## 1. kmedoids unnested is really bad
+## 2. hcluster with single linkage is bad
+## 3. nested kmedoids performs really well, which forms a natural-like unbalanced hierarchy.
+```
+
+
+### distance rank
+
+```{r}
+distance_summarise <- store_all %>% filter(distance != "") %>%
+  nest(values = c(distance, values, rank)) %>%
+  mutate_at("values", purrr::map, function(x){
+    x$rank <- do.call(cbind, x$values) %>% apply(1, rank) %>%
+      t() %>% colMeans() %>% rank()
+    x %>% select(-values) %>%
+      pivot_wider(names_from = "distance", values_from = "rank")
+  }) %>%
+  unnest("values")
+distance_summarise %>% select(-c(representator, cluster)) %>%
+  mcb()
+
+distances <- c("euclidean", "dtw", "negcor", "cor", "uncorrelation")
+distance_summarise %>% rowwise() %>%
+  mutate(max = distances[which.max(c(euclidean, dtw, negcor, cor, uncorrelation))]) %>%
+  pull(max) %>%
+  table()
+distance_summarise %>% rowwise() %>%
+  mutate(min = distances[which.min(c(euclidean, dtw, negcor, cor, uncorrelation))]) %>%
+  pull(min) %>%
+  table()
+```
+
+
+
+
