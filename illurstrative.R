@@ -76,9 +76,15 @@ weights_plot(offdiag, title = "Setting 4")
 # AR(1) errors
 library(forecast)
 source("R/reconciliation.R")
-step2 <- function(Wb) {
+step2 <- function(offdiag) {
   
-  errors <- mvrnorm(1000, rep(0, 3), Wb)
+  Wb <- diag(3)
+  Wb[lower.tri(Wb)] <- offdiag
+  Wb[upper.tri(Wb)] <- t(Wb)[upper.tri(t(Wb))]
+  
+  Wb <- diag(sqrt(c(100, 50, 20))) %*% Wb %*% diag(sqrt(c(100, 50, 20)))
+  
+  errors <- MASS::mvrnorm(1000, rep(0, 3), Wb)
   
   AR <- diag(c(0, 0.3, 0.4))
   series <- matrix(0, 1001, 3)
@@ -86,9 +92,10 @@ step2 <- function(Wb) {
     series[i,] <- AR %*% series[i-1, ] + errors[i-1,]
   }
   series <- series[102:1001,]
-  series[,1] <- seq(from=1, to=5, length = 900) + series[,1]
-  series[,2] <- seq(from=1, to=5, length = 900) + series[,2]  
+  series[,1] <- seq(from=1, to=200, length = 900) + series[,1]
+  series[,2] <- seq(from=1, to=180, length = 900) + series[,2]  
   
+  plot(ts(series))
   
   S2 <- S
   S2[2,] <- c(1, 1, 0)
@@ -111,7 +118,7 @@ step2 <- function(Wb) {
     test <- series[(791+10*i):(800+10*i),]
     
     fcasts <- lapply(iterators::iter(train, by="col"), function(s){
-      mdl <- forecast(auto.arima(s, seasonal = FALSE), h=10)
+      mdl <- forecast(auto.arima(s, max.p = 1, max.order=2, seasonal = FALSE), h=10)
       list(resid = as.numeric(residuals(mdl)), fcasts = as.numeric(mdl$mean))
     })
     
@@ -143,6 +150,7 @@ step2 <- function(Wb) {
     accs$mint <- rbind(accs$mint, rmse(reconf, test))
     accs$mint2 <- rbind(accs$mint2, rmse(reconf2, test))
   }
+  print(cov(resids))
   accs$base <- mat2list(accs$base)
   accs$mint <- mat2list(accs$mint)
   accs$mint2 <- mat2list(accs$mint2)
@@ -150,29 +158,17 @@ step2 <- function(Wb) {
 }
 
 
-W <- diag(3)
-W[2,3] <- 0.9
-W[3,2] <- 0.9
 
-r1 <- step2(W)
-r1 %>% group_by(names) %>% summarise_all(mean)
+r1 <- step2(c(0, 0, 0.9))
+r1 %>% mutate(mint = mint/base, mint2 = mint2/base) %>% group_by(names) %>% summarise_at(c("mint", "mint2"), mean)
 
 
-W <- diag(3)
-W[2,3] <- 0.5
-W[3,2] <- 0.5
+r2 <- step2(c(0, 0, 0))
+r2 %>% mutate(mint = mint/base, mint2 = mint2/base) %>% group_by(names) %>% summarise_at(c("mint", "mint2"), mean)
 
-r2 <- step2(W)
-r2 %>% group_by(names) %>% summarise_all(mean)
-
-W <- diag(3)
-W[2,3] <- -0.5
-W[3,2] <- -0.5
-
-r3 <- step2(W)
-r3 %>% group_by(names) %>% summarise_all(mean)
-
-
+r3 <- step2(c(0, 0, -0.9))
+r3 %>% group_by(names) %>% summarise_at(c("base", "mint", "mint2"), mean)
+r3 %>% mutate(mint = mint/base, mint2 = mint2/base) %>% group_by(names) %>% summarise_at(c("mint", "mint2"), mean)
 
 
 
