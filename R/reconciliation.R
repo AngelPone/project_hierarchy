@@ -1,4 +1,10 @@
 
+toMatrix <- function(x) {
+  if (is.null(dim(x))) {
+    return(matrix(x, nrow = 1))
+  }
+  x
+}
 
 reconcile.all <- function(x, methods = c("ols", "wlss", "mint", "wlsv")){
   stopifnot(!is.null(x$basef))
@@ -11,7 +17,7 @@ reconcile.all <- function(x, methods = c("ols", "wlss", "mint", "wlsv")){
     x$rf <- list()
     for (method in methods) {
       reconcile.method <- get(paste0("reconcile.", method))
-      x$rf[[method]] <- reconcile.method(S, basef, resid)
+      x$rf[[method]] <- toMatrix(reconcile.method(S, basef, resid))
     }
   }
   # with clusters
@@ -28,7 +34,7 @@ reconcile.all <- function(x, methods = c("ols", "wlss", "mint", "wlsv")){
     
     for (method in methods) {
       reconcile.method <- get(paste0("reconcile.", method))
-      x$nl[[i]]$rf[[method]] <- reconcile.method(S, basef, resid)[, 1:NROW(x$S)]
+      x$nl[[i]]$rf[[method]] <- toMatrix(reconcile.method(S, basef, resid)[, 1:NROW(x$S)])
     }
   }
   x

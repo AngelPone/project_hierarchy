@@ -1,11 +1,11 @@
 library(forecast)
 
-f.arima <- function(x){
+f.arima <- function(x, h, frequency){
   if(length(x) == 1) {
     stop("length == 1")
   }
-  mdl <- auto.arima(ts(x, frequency = 12))
-  list(basef=forecast(mdl, h=12)$mean, resid=residuals(mdl))
+  mdl <- auto.arima(ts(x, frequency = frequency))
+  list(basef=forecast(mdl, h=h)$mean, resid=residuals(mdl))
 }
 
 #' List to store the base forecast of aggregated time series
