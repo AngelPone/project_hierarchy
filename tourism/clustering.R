@@ -19,7 +19,7 @@ data <- readRDS(store_path)$data
 FEATURES <- readRDS(store_path)$features
 
 if (is.null(FEATURES)) {
-  features.compute(data)
+  features.compute(data, frequency = 12)
 }
 
 # K-medoids

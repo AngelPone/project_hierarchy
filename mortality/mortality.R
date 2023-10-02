@@ -30,7 +30,7 @@ output <- create_new_output()
 
 
 ## bottom and total forecast
-data <- forecast(data, bfmethod)
+data <- forecast(data, bfmethod, h=12, frequency=12)
 accs <- evaluate.hts(data, metrics, type = "base")
 output <- add_result(output, "", "", "", accs)
 data <- reconcile.all(data)

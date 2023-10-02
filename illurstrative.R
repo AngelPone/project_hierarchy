@@ -52,21 +52,21 @@ weights_plot <- function(offdiag, title = "Setting 1") {
 }
 
 
-# Setting 1
-weights_plot(0)
-
-# Setting 2
-
-offdiag <- runif(10, 0, 0.5)
-weights_plot(offdiag, title = "Setting 2")
-
-# Setting 3
-offdiag <- runif(10, -0.5, 0)
-weights_plot(offdiag, title = "Setting 3")
-
-# Setting 4
-offdiag <- runif(10, -0.3, 0.3)
-weights_plot(offdiag, title = "Setting 4")
+# # Setting 1
+# weights_plot(0)
+# 
+# # Setting 2
+# 
+# offdiag <- runif(10, 0, 0.5)
+# weights_plot(offdiag, title = "Setting 2")
+# 
+# # Setting 3
+# offdiag <- runif(10, -0.5, 0)
+# weights_plot(offdiag, title = "Setting 3")
+# 
+# # Setting 4
+# offdiag <- runif(10, -0.3, 0.3)
+# weights_plot(offdiag, title = "Setting 4")
 
 
 
@@ -77,23 +77,26 @@ weights_plot(offdiag, title = "Setting 4")
 library(forecast)
 source("R/reconciliation.R")
 step2 <- function(offdiag) {
-  
   Wb <- diag(3)
-  Wb[lower.tri(Wb)] <- offdiag
-  Wb[upper.tri(Wb)] <- t(Wb)[upper.tri(t(Wb))]
+  # Wb[lower.tri(Wb)] <- c(0, offdiag)
+  # Wb[upper.tri(Wb)] <- t(Wb)[upper.tri(t(Wb))]
   
-  Wb <- diag(sqrt(c(100, 50, 20))) %*% Wb %*% diag(sqrt(c(100, 50, 20)))
-  
+  Wb <- diag(sqrt(c(10, 4, 4))) %*% Wb %*% diag(sqrt(c(10, 4, 4)))
   errors <- MASS::mvrnorm(1000, rep(0, 3), Wb)
-  
-  AR <- diag(c(0, 0.3, 0.4))
+  print(cov(errors))
+  AR <- diag(c(0, 0.35, 0.35))
+  AR[2,3] <- offdiag[1]
+  AR[3,2] <- offdiag[2]
   series <- matrix(0, 1001, 3)
   for (i in 2:1001) {
     series[i,] <- AR %*% series[i-1, ] + errors[i-1,]
   }
-  series <- series[102:1001,]
-  series[,1] <- seq(from=1, to=200, length = 900) + series[,1]
-  series[,2] <- seq(from=1, to=180, length = 900) + series[,2]  
+  series <- series[602:1001,]
+  
+  print(cov(series))
+  series[,1] <- seq(from=1, to=20, length = 400) + series[,1]
+  series[,2] <- seq(from=1, to=18, length = 400) + series[,2]
+  series[,3] <- seq(from=1, to=-18, length = 400) + series[,3]
   
   plot(ts(series))
   
@@ -103,7 +106,7 @@ step2 <- function(offdiag) {
   series2 <- series %*% t(S2)
   series <- series %*% t(S)
   # Cross Validation
-  init_window <- 800
+  init_window <- 300
   step <- 10
   
   mat2list <- function(x){
@@ -114,11 +117,12 @@ step2 <- function(offdiag) {
   accs <- vector("list", 3)
   names(accs) <- c("base", "mint", "mint2")
   for (i in 1:10) {
-    train <- series[1:(790+10*i),]
-    test <- series[(791+10*i):(800+10*i),]
+    train <- series[1:(290+10*i),]
+    test <- series[(290+10*i+1):(300+10*i),]
+    test2 <- series2[(290+10*i+1):(300+10*i),]
     
     fcasts <- lapply(iterators::iter(train, by="col"), function(s){
-      mdl <- forecast(auto.arima(s, max.p = 1, max.order=2, seasonal = FALSE), h=10)
+      mdl <- forecast(auto.arima(s, seasonal = FALSE, d=1), h=10)
       list(resid = as.numeric(residuals(mdl)), fcasts = as.numeric(mdl$mean))
     })
     
@@ -129,7 +133,7 @@ step2 <- function(offdiag) {
       x$fcasts
     }))
     
-    fcasts_B2 <- forecast(auto.arima(series2[1:(790+10*i), 2], seasonal = FALSE), h=10)
+    fcasts_B2 <- forecast(auto.arima(series2[1:(290+10*i), 2], seasonal = FALSE, d=1), h=10)
     resids2 <- resids
     resids2[,2] <- as.numeric(residuals(fcasts_B2))
     fcasts2 <- fcasts
@@ -140,7 +144,7 @@ step2 <- function(offdiag) {
     reconf2 <- reconcile.mint(S2, fcasts2, resids2)
     
     rmse <- function(x, y) { 
-      r <- sapply(c(1, 3, 4, 5), function(i){
+      r <- sapply(c(1, 2, 3, 4, 5), function(i){
         sqrt(mean((x[,i]-y[,i])^2))
       })
       names(r) <- c("A", "C", "D", "E")
@@ -148,28 +152,29 @@ step2 <- function(offdiag) {
     }
     accs$base <- rbind(accs$base, rmse(fcasts, test))
     accs$mint <- rbind(accs$mint, rmse(reconf, test))
-    accs$mint2 <- rbind(accs$mint2, rmse(reconf2, test))
+    accs$mint2 <- rbind(accs$mint2, rmse(reconf2, test2))
   }
   print(cov(resids))
   accs$base <- mat2list(accs$base)
   accs$mint <- mat2list(accs$mint)
   accs$mint2 <- mat2list(accs$mint2)
-  as_tibble(accs) %>% mutate(names = c("A", "C", "D", "E")) %>% tidyr::unnest(cols = c("base", "mint", "mint2"))
+  as_tibble(accs) %>% mutate(names = c("A", "B", "C", "D", "E")) %>% tidyr::unnest(cols = c("base", "mint", "mint2"))
 }
 
 
 
-r1 <- step2(c(0, 0, 0.9))
-r1 %>% mutate(mint = mint/base, mint2 = mint2/base) %>% group_by(names) %>% summarise_at(c("mint", "mint2"), mean)
-
-
-r2 <- step2(c(0, 0, 0))
-r2 %>% mutate(mint = mint/base, mint2 = mint2/base) %>% group_by(names) %>% summarise_at(c("mint", "mint2"), mean)
-
-r3 <- step2(c(0, 0, -0.9))
-r3 %>% group_by(names) %>% summarise_at(c("base", "mint", "mint2"), mean)
-r3 %>% mutate(mint = mint/base, mint2 = mint2/base) %>% group_by(names) %>% summarise_at(c("mint", "mint2"), mean)
-
+# r1 <- step2(c(0.3, 0.3))
+# r1 %>% group_by(names) %>% summarise_at(c("base", "mint", "mint2"), mean)
+# r1 %>% mutate(mint = mint/base, mint2 = mint2/base) %>% group_by(names) %>% summarise_at(c("mint", "mint2"), mean)
+# # # 
+# # 
+# r2 <- step2(c(0, 0, 0))
+# r2 %>% mutate(mint = mint/base, mint2 = mint2/base) %>% group_by(names) %>% summarise_at(c("mint", "mint2"), mean)
+# # 
+# r3 <- step2(c(-0.3,  -0.3))
+# # #r3 %>% group_by(names) %>% summarise_at(c("base", "mint", "mint2"), mean)
+# r3 %>% mutate(mint = mint/base, mint2 = mint2/base) %>% group_by(names) %>% summarise_at(c("mint", "mint2"), mean)
+# # 
 
 
 

@@ -15,6 +15,8 @@ Consider a hierarchy with $4$ time series A,C,D,E, $A=C+D+E$. We consider
 two kind of aggregation $B_1 = D+E$, $B_2 = C+D$.
 
 ```{r, include=FALSE, echo=FALSE}
+
+set.seed(1065)
 S <- rbind(c(1,1,1), c(0, 1, 1), diag(3))
 
 
@@ -133,83 +135,7 @@ Overall, the weights for Series $B_1, D, E, A$ from Series $B_1$ ($G_{B_1,B_1}, 
 ## forecast accuracy of two different grouping method: B1 and B2
 
 ```{r, echo=FALSE, message=FALSE}
-source("R/reconciliation.R")
-library(forecast)
-step2 <- function(Wb) {
-  
-  errors <- MASS::mvrnorm(1000, rep(0, 3), Wb)
-  
-  AR <- diag(c(0, 0.3, 0.4))
-  series <- matrix(0, 1001, 3)
-  for (i in 2:1001) {
-    series[i,] <- AR %*% series[i-1, ] + errors[i-1,]
-  }
-  series <- series[102:1001,]
-  series[,1] <- seq(from=1, to=5, length = 900) + series[,1]
-  series[,2] <- seq(from=1, to=5, length = 900) + series[,2]  
-  
-  plot_series <- ts(series)
-  colnames(series) <- c("C", "D", "E")
-  plot(plot_series)
-  
-  S2 <- S
-  S2[2,] <- c(1, 1, 0)
-  
-  series2 <- series %*% t(S2)
-  series <- series %*% t(S)
-  # Cross Validation
-  init_window <- 800
-  step <- 10
-  
-  mat2list <- function(x){
-    r <- lapply(seq_len(ncol(x)), function(i) unname(x[,i]))
-    names(r) <- colnames(x)
-    r
-  } 
-  accs <- vector("list", 3)
-  names(accs) <- c("base", "mint", "mint2")
-  for (i in 1:10) {
-    train <- series[1:(790+10*i),]
-    test <- series[(791+10*i):(800+10*i),]
-    
-    fcasts <- lapply(iterators::iter(train, by="col"), function(s){
-      mdl <- forecast(auto.arima(s, seasonal = FALSE), h=10)
-      list(resid = as.numeric(residuals(mdl)), fcasts = as.numeric(mdl$mean))
-    })
-    
-    resids <- do.call(cbind, lapply(fcasts, function(x){
-      x$resid
-    }))
-    fcasts <- do.call(cbind, lapply(fcasts, function(x){
-      x$fcasts
-    }))
-    
-    fcasts_B2 <- forecast(auto.arima(series2[1:(790+10*i), 2], seasonal = FALSE), h=10)
-    resids2 <- resids
-    resids2[,2] <- as.numeric(residuals(fcasts_B2))
-    fcasts2 <- fcasts
-    fcasts2[,2] <- as.numeric(fcasts_B2$mean)
-    
-    
-    reconf <- reconcile.mint(S, fcasts, resids)
-    reconf2 <- reconcile.mint(S2, fcasts2, resids2)
-    
-    rmse <- function(x, y) { 
-      r <- sapply(c(1, 3, 4, 5), function(i){
-        sqrt(mean((x[,i]-y[,i])^2))
-      })
-      names(r) <- c("A", "C", "D", "E")
-      r
-    }
-    accs$base <- rbind(accs$base, rmse(fcasts, test))
-    accs$mint <- rbind(accs$mint, rmse(reconf, test))
-    accs$mint2 <- rbind(accs$mint2, rmse(reconf2, test))
-  }
-  accs$base <- mat2list(accs$base)
-  accs$mint <- mat2list(accs$mint)
-  accs$mint2 <- mat2list(accs$mint2)
-  as_tibble(accs) %>% mutate(names = c("A", "C", "D", "E")) %>% tidyr::unnest(cols = c("base", "mint", "mint2"))
-}
+source("illurstrative.R")
 ```
 
 
@@ -220,48 +146,45 @@ Simulation procedure:
 
 $$
 \begin{bmatrix}
-y_{C,t} \\ y_{D,t} \\ y_{E,t}
-\end{bmatrix} = \begin{bmatrix}0.0055 \\ 0.0055 \\ 0\end{bmatrix}t + \begin{bmatrix}
+e_{C,t} \\ e_{D,t} \\ e_{E,t}
+\end{bmatrix} = \begin{bmatrix}
 0 & 0 & 0 \\
-0 & 0.3 & 0 \\
-0 & 0 & 0.4
+0 & 0.4 & x \\
+0 & x & 0.4
 \end{bmatrix} \begin{bmatrix}
-y_{C,t-1} \\ y_{D,t-1} \\ y_{E,t-1}
+e_{C,t-1} \\ e_{D,t-1} \\ e_{E,t-1}
 \end{bmatrix} + \begin{bmatrix}
+\varepsilon_{C,t} \\ \varepsilon_{D,t} \\ \varepsilon_{E,t}
+\end{bmatrix}
+$$
+$$
+\begin{bmatrix}
+y_{C,t} \\ y_{D,t} \\ y_{E,t}
+\end{bmatrix} = \begin{bmatrix}
+0 \\
+0.05 \\
+0.045
+\end{bmatrix} t + \begin{bmatrix}
 e_{C,t} \\ e_{D,t} \\ e_{E,t}
 \end{bmatrix}
 $$
 
-$\boldsymbol{e}_t$ has the following covariance matrix
-
-$$
-\begin{bmatrix}
-1 & 0 & 0 \\
-0 & 1 & x \\
-0 & x & 1 \\
-\end{bmatrix}
-$$
 
 
-### x=0.9
+$\boldsymbol{\varepsilon}_t$ are white noises.
 
-```{r, message=FALSE, echo=FALSE}
-W <- diag(3)
-W[2,3] <- 0.9
-W[3,2] <- 0.9
-r1 <- step2(W)
-r1 %>% group_by(names) %>% summarise_all(mean)
-```
+```{r}
+r1 <- step2(c(0.3, 0.3))
+r1 %>% mutate(mint = mint/base, mint2 = mint2/base) %>% group_by(names) %>% summarise_at(c("mint", "mint2"), mean)
 
 
-### x=-0.9
+r2 <- step2(c(0, 0))
+r2 %>% mutate(mint = mint/base, mint2 = mint2/base) %>% group_by(names) %>% summarise_at(c("mint", "mint2"), mean)
 
-```{r, message=FALSE, echo=FALSE}
-W <- diag(3)
-W[2,3] <- -0.9
-W[3,2] <- -0.9
-r1 <- step2(W)
-r1 %>% group_by(names) %>% summarise_all(mean)
+r3 <- step2(c(-0.3, -0.4))
+#r3 %>% group_by(names) %>% summarise_at(c("base", "mint", "mint2"), mean)
+r3 %>% mutate(mint = mint/base, mint2 = mint2/base) %>% group_by(names) %>% summarise_at(c("mint", "mint2"), mean)
+
 ```
 
 
@@ -279,7 +202,6 @@ source("R/construct_hierarchy.R", chdir = TRUE)
 
 rf_method <- "mint"
 accuracy_method <- "rmse"
-
 
 # read all the results
 store_all <- NULL
@@ -320,7 +242,7 @@ mcb <- function(x) {
 }
 
 method_desc <- function(row){
-  print(sprintf("representator: %s, distance: %s, cluster: %s", 
+  print(sprintf("representator: %s, distance: %s, cluster: %s",
                 store_all$representator[row],
                 store_all$distance[row],
                 store_all$cluster[row]))
@@ -341,33 +263,76 @@ store_all %>% arrange(rank)
 
 ### representator rank
 
+```{r, include=FALSE}
+
+which.best <- function(x){
+  names(x$means)[1]
+}
+
+is.bestsignificant <- function(x){
+  x$mean[1] + x$cd/2 < x$mean[2] - x$cd/2
+}
+
+which.worst <- function(x){
+  names(x$means)[length(x$means)]
+}
+
+is.worstsignificant <- function(x){
+  x$mean[1] + x$cd/2 < x$mean[x$k] - x$cd/2
+}
+
+tmp_mcb <- function(x){
+  a <- do.call(cbind, x$values)
+  colnames(a) <- x$representator
+  tsutils::nemenyi(a, plottype = "vmcb")
+}
+```
+
 ```{r}
 # representator rank
 representator_summarise <- store_all %>% filter(distance != "") %>%
   nest(values = c(representator, values, rank)) %>%
+  mutate(orig_values = values) %>%
   mutate_at("values", purrr::map, function(x){
-    x$rank <- do.call(cbind, x$values) %>% apply(1, rank) %>%
-      t() %>% colMeans()
-    x %>% select(-values) %>%
-      pivot_wider(names_from = "representator", values_from = "rank")
-  }) %>%
-  unnest("values")
 
+    a <- do.call(cbind, x$values)
+    colnames(a) <- x$representator
+    tsutils::nemenyi(a, plottype = "none")
+  })
 
-representators <- c("error", "ts", "error.features", "ts.features", "forecast")
+representator_summarise <- representator_summarise %>%
+  rowwise() %>% mutate(best = which.best(values),
+                       sigbest = is.bestsignificant(values),
+                       worst = which.worst(values),
+                       sigworst = is.worstsignificant(values))
 
-## in most cases, error is the best
-representator_summarise %>% rowwise() %>%
-  mutate(min = representators[which.min(c(error, ts, error.features, ts.features, forecast))]) %>%
-  pull(min) %>%
-  table()
+representors <- c("ts", "error", "ts.features", "error.features", "forecast")
+for (method in representors) {
+  print(sprintf("In %s cases, %s is the best, where %s is significantly best. In %s cases, it is the worst, where %s is significantly worse than the best one.",
+                NROW(representator_summarise %>% filter(best == method)),
+                method,
+                NROW(representator_summarise %>% filter(best == method, sigbest)),
+                NROW(representator_summarise %>% filter(worst == method)),
+                NROW(representator_summarise %>% filter(worst == method, sigworst))))
+}
+```
 
-## only in one case, error is the worst
-representator_summarise %>% rowwise() %>%
-  mutate(max = representators[which.max(c(error, ts, error.features, ts.features, forecast))]) %>%
-  pull(max) %>%
-  table()
-mcb(representator_summarise %>% select(representators))
+```{r}
+
+# representators <- c("error", "ts", "error.features", "ts.features", "forecast")
+#
+# ## in most cases, error is the best
+# representator_summarise %>% rowwise() %>%
+#   mutate(min = representators[which.min(c(error, ts, error.features, ts.features, forecast))]) %>%
+#   pull(min) %>%
+#   table()
+#
+# ## only in one case, error is the worst
+# representator_summarise %>% rowwise() %>%
+#   mutate(max = representators[which.max(c(error, ts, error.features, ts.features, forecast))]) %>%
+#   pull(max) %>%
+#   table()
+# mcb(representator_summarise %>% select(representators))
 
 
 # no hierarchy is not good: 391 / 428
@@ -384,8 +349,8 @@ tmp$rank <- do.call(cbind, tmp$values) %>% apply(1, rank) %>%
 
 ## 1. all the averaged random hierarchies beat no hierarchy
 ## 2. deep and wide hierarchy wins
-## 3. average of more hierarchies does not obtain better results. 
-##   Some really bad hierarchies destroy the results. 
+## 3. average of more hierarchies does not obtain better results.
+##   Some really bad hierarchies destroy the results.
 ##.  Deeper hierarchies have the ability to mitigate the affect of bad series
 
 
@@ -397,17 +362,19 @@ tmp$rank <- do.call(cbind, tmp$values) %>% apply(1, rank) %>%
 # cluster rank
 cluster_summarise <- store_all %>% filter(distance != "") %>%
   nest(values = c(cluster, values, rank)) %>%
+  mutate(orig_values = values) %>%
   mutate_at("values", purrr::map, function(x){
-    x$rank <- do.call(cbind, x$values) %>% apply(1, rank) %>%
-      t() %>% colMeans() %>% rank()
-    x %>% select(-values) %>%
-      pivot_wider(names_from = "cluster", values_from = "rank")
-  }) %>%
-  unnest("values")
+    a <- do.call(cbind, x$values)
+    colnames(a) <- x$cluster
+    tsutils::nemenyi(a, plottype = "none")
+  }) %>% rowwise() %>% mutate(best = which.best(values),
+                       sigbest = is.bestsignificant(values),
+                       worst = which.worst(values),
+                       sigworst = is.worstsignificant(values))
 
-
-cluster_summarise %>% select(-c(representator, distance)) %>%
-  mcb()
+cluster_summarise
+# cluster_summarise %>% select(-c(representator, distance)) %>%
+#   mcb()
 
 ## 1. kmedoids unnested is really bad
 ## 2. hcluster with single linkage is bad
@@ -418,29 +385,56 @@ cluster_summarise %>% select(-c(representator, distance)) %>%
 ### distance rank
 
 ```{r}
+
 distance_summarise <- store_all %>% filter(distance != "") %>%
   nest(values = c(distance, values, rank)) %>%
+  mutate(orig_values = values) %>%
   mutate_at("values", purrr::map, function(x){
-    x$rank <- do.call(cbind, x$values) %>% apply(1, rank) %>%
-      t() %>% colMeans() %>% rank()
-    x %>% select(-values) %>%
-      pivot_wider(names_from = "distance", values_from = "rank")
-  }) %>%
-  unnest("values")
-distance_summarise %>% select(-c(representator, cluster)) %>%
-  mcb()
+    a <- do.call(cbind, x$values)
+    colnames(a) <- x$distance
+    tsutils::nemenyi(a, plottype = "none")
+  }) %>% rowwise() %>% mutate(best = which.best(values),
+                       sigbest = is.bestsignificant(values),
+                       worst = which.worst(values),
+                       sigworst = is.worstsignificant(values))
 
-distances <- c("euclidean", "dtw", "negcor", "cor", "uncorrelation")
-distance_summarise %>% rowwise() %>%
-  mutate(max = distances[which.max(c(euclidean, dtw, negcor, cor, uncorrelation))]) %>%
-  pull(max) %>%
-  table()
-distance_summarise %>% rowwise() %>%
-  mutate(min = distances[which.min(c(euclidean, dtw, negcor, cor, uncorrelation))]) %>%
-  pull(min) %>%
-  table()
+distance_summarise
+
+
+# distance_summarise <- store_all %>% filter(distance != "") %>%
+#   nest(values = c(distance, values, rank)) %>%
+#   mutate_at("values", purrr::map, function(x){
+#     x$rank <- do.call(cbind, x$values) %>% apply(1, rank) %>%
+#       t() %>% colMeans() %>% rank()
+#     x %>% select(-values) %>%
+#       pivot_wider(names_from = "distance", values_from = "rank")
+#   }) %>%
+#   unnest("values")
+# distance_summarise %>% select(-c(representator, cluster)) %>%
+#   mcb()
+#
+# distances <- c("euclidean", "dtw", "negcor", "cor", "uncorrelation")
+# distance_summarise %>% rowwise() %>%
+#   mutate(max = distances[which.max(c(euclidean, dtw, negcor, cor, uncorrelation))]) %>%
+#   pull(max) %>%
+#   table()
+# distance_summarise %>% rowwise() %>%
+#   mutate(min = distances[which.min(c(euclidean, dtw, negcor, cor, uncorrelation))]) %>%
+#   pull(min) %>%
+#   table()
 ```
 
+```{r}
+distances <- c("cor", "dtw", "euclidean", "negcor", "uncorrelation")
+for (method in distances) {
+  print(sprintf("In %s cases, %s is the best, where %s is significantly best. In %s cases, it is the worst, where %s is significantly worse than the best one.",
+                NROW(distance_summarise %>% filter(best == method)),
+                method,
+                NROW(distance_summarise %>% filter(best == method, sigbest)),
+                NROW(distance_summarise %>% filter(worst == method)),
+                NROW(distance_summarise %>% filter(worst == method, sigworst))))
+}
+```
 
 
 ## Tourism
@@ -489,40 +483,58 @@ store_all %>% arrange(rank)
 
 ### representator rank
 
-```{r, message=FALSE}
+```{r}
 # representator rank
 representator_summarise <- store_all %>% filter(distance != "") %>%
   nest(values = c(representator, values, rank)) %>%
+  mutate(orig_values = values) %>%
   mutate_at("values", purrr::map, function(x){
-    x$rank <- do.call(cbind, x$values) %>% apply(1, rank) %>%
-      t() %>% colMeans()
-    x %>% dplyr::select(-values) %>%
-      pivot_wider(names_from = "representator", values_from = "rank")
-  }) %>%
-  unnest("values")
+
+    a <- do.call(cbind, x$values)
+    colnames(a) <- x$representator
+    tsutils::nemenyi(a, plottype = "none")
+  })
+
+representator_summarise <- representator_summarise %>%
+  rowwise() %>% mutate(best = which.best(values),
+                       sigbest = is.bestsignificant(values),
+                       worst = which.worst(values),
+                       sigworst = is.worstsignificant(values))
+
+representors <- c("ts", "error", "ts.features", "error.features", "forecast")
+for (method in representors) {
+  print(sprintf("In %s cases, %s is the best, where %s is significantly best. In %s cases, it is the worst, where %s is significantly worse than the best one.",
+                NROW(representator_summarise %>% filter(best == method)),
+                method,
+                NROW(representator_summarise %>% filter(best == method, sigbest)),
+                NROW(representator_summarise %>% filter(worst == method)),
+                NROW(representator_summarise %>% filter(worst == method, sigworst))))
+}
+```
+
+```{r}
+
+# representators <- c("error", "ts", "error.features", "ts.features", "forecast")
+#
+# ## in most cases, error is the best
+# representator_summarise %>% rowwise() %>%
+#   mutate(min = representators[which.min(c(error, ts, error.features, ts.features, forecast))]) %>%
+#   pull(min) %>%
+#   table()
+#
+# ## only in one case, error is the worst
+# representator_summarise %>% rowwise() %>%
+#   mutate(max = representators[which.max(c(error, ts, error.features, ts.features, forecast))]) %>%
+#   pull(max) %>%
+#   table()
+# mcb(representator_summarise %>% select(representators))
 
 
-representators <- c("error", "ts", "error.features", "ts.features", "forecast")
+# no hierarchy is not good: 391 / 428
+print(sprintf("rank of no clustering: %s", rank(store_all$rank)[1]))
 
-## in most cases, error is the best
-representator_summarise %>% rowwise() %>%
-  mutate(min = representators[which.min(c(error, ts, error.features, ts.features, forecast))]) %>%
-  pull(min) %>%
-  table()
-
-## only in one case, error is the worst
-representator_summarise %>% rowwise() %>%
-  mutate(max = representators[which.max(c(error, ts, error.features, ts.features, forecast))]) %>%
-  pull(max) %>%
-  table()
-mcb(representator_summarise %>% dplyr::select(all_of(representators)))
-
-
-# no hierarchy
-rank(store_all$rank)[which(store_all$cluster == "")]
-
-# natural hierarchy
-rank(store_all$rank)[which(store_all$cluster == "natural")]
+# natural hierarchy is not bad: 72/428
+print(sprintf("rank of natural hierarchy: %s", rank(store_all$rank)[2]))
 
 # random versus random natural versus natural
 
@@ -532,8 +544,8 @@ tmp$rank <- do.call(cbind, tmp$values) %>% apply(1, rank) %>%
 
 ## 1. all the averaged random hierarchies beat no hierarchy
 ## 2. deep and wide hierarchy wins
-## 3. average of more hierarchies does not obtain better results. 
-##   Some really bad hierarchies destroy the results. 
+## 3. average of more hierarchies does not obtain better results.
+##   Some really bad hierarchies destroy the results.
 ##.  Deeper hierarchies have the ability to mitigate the affect of bad series
 
 
@@ -545,17 +557,19 @@ tmp$rank <- do.call(cbind, tmp$values) %>% apply(1, rank) %>%
 # cluster rank
 cluster_summarise <- store_all %>% filter(distance != "") %>%
   nest(values = c(cluster, values, rank)) %>%
+  mutate(orig_values = values) %>%
   mutate_at("values", purrr::map, function(x){
-    x$rank <- do.call(cbind, x$values) %>% apply(1, rank) %>%
-      t() %>% colMeans() %>% rank()
-    x %>% dplyr::select(-values) %>%
-      pivot_wider(names_from = "cluster", values_from = "rank")
-  }) %>%
-  unnest("values")
+    a <- do.call(cbind, x$values)
+    colnames(a) <- x$cluster
+    tsutils::nemenyi(a, plottype = "none")
+  }) %>% rowwise() %>% mutate(best = which.best(values),
+                       sigbest = is.bestsignificant(values),
+                       worst = which.worst(values),
+                       sigworst = is.worstsignificant(values))
 
-
-cluster_summarise %>% dplyr::select(-c(representator, distance)) %>%
-  mcb()
+cluster_summarise
+# cluster_summarise %>% select(-c(representator, distance)) %>%
+#   mcb()
 
 ## 1. kmedoids unnested is really bad
 ## 2. hcluster with single linkage is bad
@@ -566,29 +580,198 @@ cluster_summarise %>% dplyr::select(-c(representator, distance)) %>%
 ### distance rank
 
 ```{r}
+
 distance_summarise <- store_all %>% filter(distance != "") %>%
   nest(values = c(distance, values, rank)) %>%
+  mutate(orig_values = values) %>%
   mutate_at("values", purrr::map, function(x){
-    x$rank <- do.call(cbind, x$values) %>% apply(1, rank) %>%
-      t() %>% colMeans() %>% rank()
-    x %>% select(-values) %>%
-      pivot_wider(names_from = "distance", values_from = "rank")
-  }) %>%
-  unnest("values")
-distance_summarise %>% select(-c(representator, cluster)) %>%
-  mcb()
+    a <- do.call(cbind, x$values)
+    colnames(a) <- x$distance
+    tsutils::nemenyi(a, plottype = "none")
+  }) %>% rowwise() %>% mutate(best = which.best(values),
+                       sigbest = is.bestsignificant(values),
+                       worst = which.worst(values),
+                       sigworst = is.worstsignificant(values))
 
-distances <- c("euclidean", "dtw", "negcor", "cor", "uncorrelation")
-distance_summarise %>% rowwise() %>%
-  mutate(max = distances[which.max(c(euclidean, dtw, negcor, cor, uncorrelation))]) %>%
-  pull(max) %>%
-  table()
-distance_summarise %>% rowwise() %>%
-  mutate(min = distances[which.min(c(euclidean, dtw, negcor, cor, uncorrelation))]) %>%
-  pull(min) %>%
-  table()
+distance_summarise
+
+
+# distance_summarise <- store_all %>% filter(distance != "") %>%
+#   nest(values = c(distance, values, rank)) %>%
+#   mutate_at("values", purrr::map, function(x){
+#     x$rank <- do.call(cbind, x$values) %>% apply(1, rank) %>%
+#       t() %>% colMeans() %>% rank()
+#     x %>% select(-values) %>%
+#       pivot_wider(names_from = "distance", values_from = "rank")
+#   }) %>%
+#   unnest("values")
+# distance_summarise %>% select(-c(representator, cluster)) %>%
+#   mcb()
+#
+# distances <- c("euclidean", "dtw", "negcor", "cor", "uncorrelation")
+# distance_summarise %>% rowwise() %>%
+#   mutate(max = distances[which.max(c(euclidean, dtw, negcor, cor, uncorrelation))]) %>%
+#   pull(max) %>%
+#   table()
+# distance_summarise %>% rowwise() %>%
+#   mutate(min = distances[which.min(c(euclidean, dtw, negcor, cor, uncorrelation))]) %>%
+#   pull(min) %>%
+#   table()
 ```
 
+```{r}
+distances <- c("cor", "dtw", "euclidean", "negcor", "uncorrelation")
+for (method in distances) {
+  print(sprintf("In %s cases, %s is the best, where %s is significantly best. In %s cases, it is the worst, where %s is significantly worse than the best one.",
+                NROW(distance_summarise %>% filter(best == method)),
+                method,
+                NROW(distance_summarise %>% filter(best == method, sigbest)),
+                NROW(distance_summarise %>% filter(worst == method)),
+                NROW(distance_summarise %>% filter(worst == method, sigworst))))
+}
+```
+
+## Prison
+
+
+```{r, include=FALSE, echo=FALSE}
+store_all <- NULL
+for (batch in 0:7) {
+  store_all <- readRDS(paste0("prison/store_", batch, ".rds"))$output %>%
+    output_pre() %>% mutate(batch = batch) %>%
+    filter(rf_method == .env$rf_method, accuracy_method == .env$accuracy_method) %>%
+    dplyr::select(-rf_method, -accuracy_method) %>%
+    rbind(store_all)
+}
+
+store_all <- store_all %>% rowwise() %>%
+  mutate(values = list(c(total, bottom))) %>% ungroup() %>%
+  dplyr::select(-total, -bottom)
+
+## remove single random
+store_all <- store_all %>% filter(!startsWith(cluster, "random-single"))
+
+# store_all %>% group_by(representator, distance, cluster) %>% tally() %>%
+#   pull(n) %>% table()
+
+## combine the results of 12 batches for one clustering method
+
+store_all <- store_all %>% dplyr::select(-other) %>% nest(values = c(batch, values)) %>%
+  mutate_at("values", purrr::map, function(x){
+    x <- arrange(x, batch)
+    do.call(c, x$values)
+  })
+
+## convert the tibble to a data.frame used for comparing ranks
+store_mat <- do.call(cbind, store_all$values)
+store_rank <- apply(store_mat, 1, rank) %>% t() %>% colMeans()
+store_all$rank <- store_rank
+```
+
+
+```{r}
+mcb(store_mat)
+```
+For prison data, all the methods are insignificantly different.
+```{r}
+store_all %>% arrange(rank)
+```
+
+### representator rank
+
+```{r}
+# representator rank
+representator_summarise <- store_all %>% filter(distance != "") %>%
+  nest(values = c(representator, values, rank)) %>%
+  mutate(orig_values = values) %>%
+  mutate_at("values", purrr::map, function(x){
+
+    a <- do.call(cbind, x$values)
+    colnames(a) <- x$representator
+    tsutils::nemenyi(a, plottype = "none")
+  })
+
+representator_summarise <- representator_summarise %>%
+  rowwise() %>% mutate(best = which.best(values),
+                       sigbest = is.bestsignificant(values),
+                       worst = which.worst(values),
+                       sigworst = is.worstsignificant(values))
+
+representors <- c("ts", "error", "ts.features", "error.features", "forecast")
+for (method in representors) {
+  print(sprintf("In %s cases, %s is the best, where %s is significantly best. In %s cases, it is the worst, where %s is significantly worse than the best one.",
+                NROW(representator_summarise %>% filter(best == method)),
+                method,
+                NROW(representator_summarise %>% filter(best == method, sigbest)),
+                NROW(representator_summarise %>% filter(worst == method)),
+                NROW(representator_summarise %>% filter(worst == method, sigworst))))
+}
+```
+
+```{r}
+# no hierarchy is not good: 391 / 428
+print(sprintf("rank of no clustering: %s", rank(store_all$rank)[1]))
+
+# natural hierarchy is not bad: 72/428
+print(sprintf("rank of natural hierarchy: %s", rank(store_all$rank)[2]))
+
+# random versus random natural versus natural
+
+tmp <- store_all %>% filter(distance == "")
+tmp$rank <- do.call(cbind, tmp$values) %>% apply(1, rank) %>%
+  t() %>% colMeans()
+```
+
+
+### cluster rank
+```{r}
+# cluster rank
+cluster_summarise <- store_all %>% filter(distance != "") %>%
+  nest(values = c(cluster, values, rank)) %>%
+  mutate(orig_values = values) %>%
+  mutate_at("values", purrr::map, function(x){
+    a <- do.call(cbind, x$values)
+    colnames(a) <- x$cluster
+    tsutils::nemenyi(a, plottype = "none")
+  }) %>% rowwise() %>% mutate(best = which.best(values),
+                       sigbest = is.bestsignificant(values),
+                       worst = which.worst(values),
+                       sigworst = is.worstsignificant(values))
+
+cluster_summarise
+```
+
+
+### distance rank
+
+```{r}
+
+distance_summarise <- store_all %>% filter(distance != "") %>%
+  nest(values = c(distance, values, rank)) %>%
+  mutate(orig_values = values) %>%
+  mutate_at("values", purrr::map, function(x){
+    a <- do.call(cbind, x$values)
+    colnames(a) <- x$distance
+    tsutils::nemenyi(a, plottype = "none")
+  }) %>% rowwise() %>% mutate(best = which.best(values),
+                       sigbest = is.bestsignificant(values),
+                       worst = which.worst(values),
+                       sigworst = is.worstsignificant(values))
+
+distance_summarise
+```
+
+```{r}
+distances <- c("cor", "dtw", "euclidean", "negcor", "uncorrelation")
+for (method in distances) {
+  print(sprintf("In %s cases, %s is the best, where %s is significantly best. In %s cases, it is the worst, where %s is significantly worse than the best one.",
+                NROW(distance_summarise %>% filter(best == method)),
+                method,
+                NROW(distance_summarise %>% filter(best == method, sigbest)),
+                NROW(distance_summarise %>% filter(worst == method)),
+                NROW(distance_summarise %>% filter(worst == method, sigworst))))
+}
+```
 
 
 
