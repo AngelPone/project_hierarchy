@@ -46,16 +46,17 @@ reconcile.ols <- function(S, basef, resid) {
 }
 
 reconcile.mint <- function(S, basef, resid) {
-  lamb <- lambda_estimate(resid)
-  W <- cov(resid)
-  W <- solve((1-lamb) * W + lamb * diag(diag(W)))
+  # lamb <- lambda_estimate(resid)
+  # W <- cov(resid)
+  W <- solve(lambda_estimate(resid))
   rm <- S %*% solve(t(S) %*% W %*% S, t(S) %*% W)
   
   basef %*% t(rm)
 }
 
 reconcile.wlsv <- function(S, basef, resid) {
-  W <- diag(1/apply(resid, 2, var))
+  # W <- diag(1/apply(resid, 2, var))
+  W <- diag(1 /diag(crossprod(resid)))
   rm <- S %*% solve(t(S) %*% W %*% S, t(S) %*% W)
   basef %*% t(rm)
 }
@@ -76,5 +77,7 @@ lambda_estimate <- function(error){
   xs2 = xs^2
   v = 1/(timeT*(timeT-1))*(t(xs2) %*% xs2 - 1/timeT*(t(xs) %*% xs)^2)
   diag(v) = 0
-  max(min(c(sum(v)/d, 1)), 0)
+  lamb <- max(min(c(sum(v)/d, 1)), 0)
+  
+  lamb * diag(diag(covm)) + (1-lamb) * covm
 }
