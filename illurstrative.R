@@ -75,28 +75,29 @@ weights_plot <- function(offdiag, title = "Setting 1") {
 
 # AR(1) errors
 library(forecast)
+library(dplyr)
 source("R/reconciliation.R")
-step2 <- function(offdiag) {
+step2 <- function(epsilon_cor, epsilon_var, ma_theta) {
   Wb <- diag(3)
-  # Wb[lower.tri(Wb)] <- c(0, offdiag)
-  # Wb[upper.tri(Wb)] <- t(Wb)[upper.tri(t(Wb))]
+  Wb[lower.tri(Wb)] <- c(0, 0, epsilon_cor)
+  Wb[upper.tri(Wb)] <- t(Wb)[upper.tri(t(Wb))]
   
-  Wb <- diag(sqrt(c(10, 4, 4))) %*% Wb %*% diag(sqrt(c(10, 4, 4)))
-  errors <- MASS::mvrnorm(1000, rep(0, 3), Wb)
+  Wb <- diag(sqrt(epsilon_var)) %*% Wb %*% diag(sqrt(epsilon_var))
+  errors <- MASS::mvrnorm(1001, rep(0, 3), Wb)
   print(cov(errors))
-  AR <- diag(c(0, 0.35, 0.35))
-  AR[2,3] <- offdiag[1]
-  AR[3,2] <- offdiag[2]
+  AR <- diag(c(0, ma_theta, ma_theta))
+  # AR[2,3] <- offdiag[1]
+  # AR[3,2] <- offdiag[2]
   series <- matrix(0, 1001, 3)
   for (i in 2:1001) {
-    series[i,] <- AR %*% series[i-1, ] + errors[i-1,]
+    series[i,] <- AR %*% errors[i-1, ] + errors[i,]
   }
   series <- series[602:1001,]
   
   print(cov(series))
-  series[,1] <- seq(from=1, to=20, length = 400) + series[,1]
-  series[,2] <- seq(from=1, to=18, length = 400) + series[,2]
-  series[,3] <- seq(from=1, to=-18, length = 400) + series[,3]
+  series[,1] <- seq(from=1, to=40, length = 400) + series[,1]
+  series[,2] <- seq(from=1, to=36, length = 400) + series[,2]
+  series[,3] <- seq(from=1, to=-36, length = 400) + series[,3]
   
   plot(ts(series))
   
@@ -114,17 +115,22 @@ step2 <- function(offdiag) {
     names(r) <- colnames(x)
     r
   } 
-  accs <- vector("list", 3)
-  names(accs) <- c("base", "mint", "mint2")
+  accs <- vector("list", 4)
+  names(accs) <- c("base", "error", "ts", "noclustering")
   for (i in 1:10) {
     train <- series[1:(290+10*i),]
     test <- series[(290+10*i+1):(300+10*i),]
     test2 <- series2[(290+10*i+1):(300+10*i),]
     
-    fcasts <- lapply(iterators::iter(train, by="col"), function(s){
-      mdl <- forecast(auto.arima(s, seasonal = FALSE, d=1), h=10)
-      list(resid = as.numeric(residuals(mdl)), fcasts = as.numeric(mdl$mean))
-    })
+    fcasts <- list()
+    for (j in 1:5) {
+      if (j <= 2) {
+        mdl <- forecast(auto.arima(train[, j], seasonal = FALSE), h=10)
+      } else {
+        mdl <- forecast(arima(train[, j], order = c(0, 1, 0)), h=10)
+      }
+      fcasts[[j]] <- list(resid = as.numeric(residuals(mdl)), fcasts = as.numeric(mdl$mean))
+    }
     
     resids <- do.call(cbind, lapply(fcasts, function(x){
       x$resid
@@ -133,13 +139,13 @@ step2 <- function(offdiag) {
       x$fcasts
     }))
     
-    fcasts_B2 <- forecast(auto.arima(series2[1:(290+10*i), 2], seasonal = FALSE, d=1), h=10)
+    fcasts_B2 <- forecast(auto.arima(series2[1:(290+10*i), 2]), h=10)
     resids2 <- resids
     resids2[,2] <- as.numeric(residuals(fcasts_B2))
     fcasts2 <- fcasts
     fcasts2[,2] <- as.numeric(fcasts_B2$mean)
     
-    
+    reconf3 <- reconcile.mint(S[c(1, 3, 4, 5),], fcasts[,c(1, 3, 4, 5)], resids[,c(1, 3, 4, 5)])
     reconf <- reconcile.mint(S, fcasts, resids)
     reconf2 <- reconcile.mint(S2, fcasts2, resids2)
     
@@ -147,33 +153,43 @@ step2 <- function(offdiag) {
       r <- sapply(c(1, 2, 3, 4, 5), function(i){
         sqrt(mean((x[,i]-y[,i])^2))
       })
-      names(r) <- c("A", "C", "D", "E")
+      names(r) <- c("A", "B", "C", "D", "E")
+      r
+    }
+    
+    rmse_noclustering <- function(x, y) {
+      r <- sapply(c(1, 2, 3, 4), function(i){
+        sqrt(mean((x[,i]-y[,i])^2))
+      })
+      r <- c(r[1], NA, r[2:4])
+      names(r) <- c("A", "B", "C", "D", "E")
       r
     }
     accs$base <- rbind(accs$base, rmse(fcasts, test))
-    accs$mint <- rbind(accs$mint, rmse(reconf, test))
-    accs$mint2 <- rbind(accs$mint2, rmse(reconf2, test2))
+    accs$error <- rbind(accs$error, rmse(reconf, test))
+    accs$ts <- rbind(accs$ts, rmse(reconf2, test2))
+    accs$noclustering <- rbind(accs$noclustering, rmse_noclustering(reconf3, test2[,c(1,3,4,5)]))
   }
   print(cov(resids))
   accs$base <- mat2list(accs$base)
-  accs$mint <- mat2list(accs$mint)
-  accs$mint2 <- mat2list(accs$mint2)
-  as_tibble(accs) %>% mutate(names = c("A", "B", "C", "D", "E")) %>% tidyr::unnest(cols = c("base", "mint", "mint2"))
+  accs$error <- mat2list(accs$error)
+  accs$ts <- mat2list(accs$ts)
+  accs$noclustering <- mat2list(accs$noclustering)
+  as_tibble(accs) %>% mutate(names = c("A", "B", "C", "D", "E")) %>% tidyr::unnest(cols = c("base", "error", "ts", "noclustering"))
 }
 
 
+r1 <- step2(epsilon_cor = 0.9,epsilon_var = c(100, 4, 4), ma_theta = 0.3)
+r1 %>% group_by(names) %>% summarise_at(c("base", "ts", "error", "noclustering"), mean)
+r1 %>% mutate(error = error/base, ts = ts/base, noclustering=noclustering/base) %>% group_by(names) %>% summarise_at(c("error", "ts", "noclustering"), mean)
 
-# r1 <- step2(c(0.3, 0.3))
-# r1 %>% group_by(names) %>% summarise_at(c("base", "mint", "mint2"), mean)
-# r1 %>% mutate(mint = mint/base, mint2 = mint2/base) %>% group_by(names) %>% summarise_at(c("mint", "mint2"), mean)
-# # # 
-# # 
-# r2 <- step2(c(0, 0, 0))
-# r2 %>% mutate(mint = mint/base, mint2 = mint2/base) %>% group_by(names) %>% summarise_at(c("mint", "mint2"), mean)
-# # 
-# r3 <- step2(c(-0.3,  -0.3))
-# # #r3 %>% group_by(names) %>% summarise_at(c("base", "mint", "mint2"), mean)
-# r3 %>% mutate(mint = mint/base, mint2 = mint2/base) %>% group_by(names) %>% summarise_at(c("mint", "mint2"), mean)
+
+r2 <- step2(epsilon_cor = 0, epsilon_var = c(49, 9, 9), ma_theta = 0)
+r2 %>% mutate(error = error/base, ts = ts/base, noclustering=noclustering/base) %>% group_by(names) %>% summarise_at(c("error", "ts",  "noclustering"), mean)
+
+r3 <- step2(epsilon_cor = -0.9,epsilon_var = c(100, 4, 4), ma_theta = 0.6)
+r3 %>% group_by(names) %>% summarise_at(c("base", "ts", "error", "noclustering"), mean)
+r3 %>% mutate(error = error/base, ts = ts/base, noclustering=noclustering/base) %>% group_by(names) %>% summarise_at(c("error", "ts", "noclustering"), mean)
 # # 
 
 
