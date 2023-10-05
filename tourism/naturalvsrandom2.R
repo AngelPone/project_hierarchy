@@ -3,7 +3,7 @@ args <- commandArgs(trailingOnly = TRUE)
 batch <- as.integer(args[[1]])
 path <- "tourism"
 bfmethod <- "ets"
-set.seed(44)
+set.seed(810975)
 source("R/construct_hierarchy.R", chdir = T)
 
 num.cores <- 8
@@ -18,30 +18,14 @@ data <- readRDS(store_path)$data
 FEATURES <- readRDS(store_path)$features
 DISTANCEMAT <- readRDS(store_path)$distance
 
-# natural hierarchy
 S <- read.csv("tourism/S.csv", row.names = 1)
 S <- unname(as.matrix(S))
-natural_data <- data
-
-natural_data$nl <- list(list(S = S[2:251,],
-                             basef = NULL,
-                             rf = NULL))
-
-natural_data <- forecast(natural_data, bfmethod, frequency=12, h=12)
-natural_data <- reconcile.all(natural_data)
-accs <- evaluate.hts(natural_data, metrics, type = "nl")
-output <- add_result(output, "", "", "natural", accs, other = list(
-  S = as(natural_data$nl[[1]]$S, "sparseMatrix")
-))
-
-saveResult()
-print(paste0(Sys.time(), "finish natural hierarchy"))
 
 # random hierarchy
 
-for (n_repeat in c(20, 50)) {
+for (n_repeat in c(100)) {
   for (n_cluster in 5:15) {
-    print(sprintf("%s random hierarchy: %s cluster * %s repeats", as.character(Sys.time()), n_repeat, n_cluster))
+    print(sprintf("%s random hierarchy: %s repeats * %s cluster", as.character(Sys.time()), n_repeat, n_cluster))
     data <- build_level(data, "ts", 
                         "euclidean", cluster.random, 
                         n_clusters = rep(n_cluster, n_repeat))
@@ -72,9 +56,9 @@ saveResult()
 
 
 # random natural
-print(paste0(Sys.time(), "random natural 20 ......."))
+print(paste0(Sys.time(), "random natural 100 ......."))
 new_S <- S[2:251,]
-data$nl <- lapply(1:20, function(i) {
+data$nl <- lapply(1:100, function(i) {
   list(S = new_S[,sample(NCOL(new_S), NCOL(new_S))],
        basef = NULL,
        rf = NULL)
@@ -85,7 +69,7 @@ data <- reconcile.all(data)
 accs <- evaluate.hts(data, metrics, type="average")
 accs_single <- evaluate.hts(data, metrics, type="nl")
 
-accs_single <- lapply(1:20, function(x) {
+accs_single <- lapply(1:100, function(x) {
   tmp <- lapply(metrics, function(metric){
     accs_single[[metric]][[x]]
   })
@@ -98,7 +82,7 @@ for (acc in seq_along(accs_single)) {
                        other = list(S = as(data$nl[[acc]]$S, "sparseMatrix")))
 }
 
-output <- add_result(output, "", "", paste0("random-average-natural-", 20), accs, other = list(average=20, S = lapply(data$nl, function(x){ as(x$S, "sparseMatrix") })))
+output <- add_result(output, "", "", paste0("random-average-natural-", 100), accs, other = list(average=100, S = lapply(data$nl, function(x){ as(x$S, "sparseMatrix") })))
 
 saveResult()
 
