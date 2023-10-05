@@ -1,7 +1,7 @@
-library(forecast)
-library(cluster)
-library(foreach)
-library(dplyr)
+library(forecast, quietly = TRUE)
+library(cluster, quietly = TRUE)
+library(foreach, quietly = TRUE)
+library(dplyr, quietly = TRUE)
 source("representator.R")
 source("distance.R")
 source("clustering.R")
@@ -129,15 +129,8 @@ build_level <- function(
   stopifnot(is.hts(hts))
   
   n <- NCOL(hts$bts)
-  cluster_input <- representator(hts)
-  distance_mat <- matrix(0, n, n)
   
-  for(i in 1:n) {
-    for (j in 1:i) {
-      distance_mat[i, j] <- distance(cluster_input[, i], cluster_input[, j])
-      distance_mat[j, i] <- distance_mat[i, j]
-    }
-  }
+  distance_mat <- DISTANCEMAT[[representator]][[distance]]
   
   group_result <- cluster(distance_mat, ...)
   

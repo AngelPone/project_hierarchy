@@ -1,4 +1,4 @@
-library(Matrix)
+library(Matrix, quietly = TRUE)
 
 create_new_output <- function() {
   output <- vector("list", 5)
@@ -10,7 +10,8 @@ saveResult <- function() {
   saveRDS(list(bfstore = BASEFORECAST_STORE,
                data = data,
                output = output,
-               features = FEATURES),
+               features = FEATURES,
+               distance = DISTANCEMAT),
           store_path)
 }
 
@@ -40,9 +41,6 @@ output_pre <- function(output) {
 }
 
 metrics <- c("mae", "rmse")
-if (exists("path")) {
-  store_path <- sprintf("%s/store_%s.rds", path, batch)
-}
 
 
 

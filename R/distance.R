@@ -3,7 +3,7 @@
 distance.euclidean <- function(x, y) { sqrt(sum((x - y)^2)) }
 
 
-library(dtw)
+library(dtw, quietly = TRUE)
 #' Dynamic Time Warping
 distance.dtw <- function(x, y) { dtw(x, y, distance.only = TRUE)$distance }
 

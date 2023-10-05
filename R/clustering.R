@@ -1,4 +1,4 @@
-library(cluster)
+library(cluster, quietly = TRUE)
 
 cluster.random <- function(distance_mat, n_clusters) {
   
