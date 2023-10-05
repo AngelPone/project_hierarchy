@@ -1,10 +1,15 @@
-library(forecast)
+library(forecast, quietly = TRUE)
 
 f.arima <- function(x, h, frequency){
   if(length(x) == 1) {
     stop("length == 1")
   }
   mdl <- auto.arima(ts(x, frequency = frequency))
+  list(basef=forecast(mdl, h=h)$mean, resid=residuals(mdl))
+}
+
+f.ets <- function(x, h, frequency) {
+  mdl <- ets(ts(x, frequency = frequency))
   list(basef=forecast(mdl, h=h)$mean, resid=residuals(mdl))
 }
 
