@@ -94,12 +94,12 @@ step2 <- function(epsilon_cor, epsilon_var, ma_theta) {
   }
   series <- series[602:1001,]
   
-  print(cov(series))
+  # print(cov(series))
   series[,1] <- seq(from=1, to=40, length = 400) + series[,1]
   series[,2] <- seq(from=1, to=36, length = 400) + series[,2]
   series[,3] <- seq(from=1, to=-36, length = 400) + series[,3]
   
-  plot(ts(series))
+  # plot(ts(series))
   
   S2 <- S
   S2[2,] <- c(1, 1, 0)
@@ -179,18 +179,18 @@ step2 <- function(epsilon_cor, epsilon_var, ma_theta) {
 }
 
 
-r1 <- step2(epsilon_cor = 0.9,epsilon_var = c(100, 4, 4), ma_theta = 0.3)
-r1 %>% group_by(names) %>% summarise_at(c("base", "ts", "error", "noclustering"), mean)
-r1 %>% mutate(error = error/base, ts = ts/base, noclustering=noclustering/base) %>% group_by(names) %>% summarise_at(c("error", "ts", "noclustering"), mean)
-
-
-r2 <- step2(epsilon_cor = 0, epsilon_var = c(49, 9, 9), ma_theta = 0)
-r2 %>% mutate(error = error/base, ts = ts/base, noclustering=noclustering/base) %>% group_by(names) %>% summarise_at(c("error", "ts",  "noclustering"), mean)
-
-r3 <- step2(epsilon_cor = -0.9,epsilon_var = c(100, 4, 4), ma_theta = 0.6)
-r3 %>% group_by(names) %>% summarise_at(c("base", "ts", "error", "noclustering"), mean)
-r3 %>% mutate(error = error/base, ts = ts/base, noclustering=noclustering/base) %>% group_by(names) %>% summarise_at(c("error", "ts", "noclustering"), mean)
-# # 
+# r1 <- step2(epsilon_cor = 0.9,epsilon_var = c(100, 4, 4), ma_theta = 0.3)
+# r1 %>% group_by(names) %>% summarise_at(c("base", "ts", "error", "noclustering"), mean)
+# r1 %>% mutate(error = error/base, ts = ts/base, noclustering=noclustering/base) %>% group_by(names) %>% summarise_at(c("error", "ts", "noclustering"), mean)
+# 
+# 
+# r2 <- step2(epsilon_cor = 0, epsilon_var = c(49, 9, 9), ma_theta = 0)
+# r2 %>% mutate(error = error/base, ts = ts/base, noclustering=noclustering/base) %>% group_by(names) %>% summarise_at(c("error", "ts",  "noclustering"), mean)
+# 
+# r3 <- step2(epsilon_cor = -0.9,epsilon_var = c(100, 4, 4), ma_theta = 0.6)
+# r3 %>% group_by(names) %>% summarise_at(c("base", "ts", "error", "noclustering"), mean)
+# r3 %>% mutate(error = error/base, ts = ts/base, noclustering=noclustering/base) %>% group_by(names) %>% summarise_at(c("error", "ts", "noclustering"), mean)
+# # # 
 
 
 
