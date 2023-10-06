@@ -27,12 +27,12 @@ for (representator in c("ts", "error", "ts.features", "error.features", "forecas
                         n_clusters = n_clusters)
       dt <- forecast(dt, bfmethod, h=12, frequency=12)
       dt <- reconcile.all(dt)
-      accs <- evaluate.hts(dt, metrics, type = "nl")
+      # accs <- evaluate.hts(dt, metrics, type = "nl")
       output <- add_result(output, 
                            representotar = representator, 
                            distance = distance, 
                            cluster = paste0("kmedoids-", n_clusters), 
-                           accs = accs,
+                           rf = dt$nl[[1]]$rf,
                            other = list(S = as(dt$nl[[1]]$S, "sparseMatrix")))
     }
   }
@@ -51,12 +51,12 @@ for (representator in c("ts", "error", "ts.features", "error.features", "forecas
                         method = method)
       dt <- forecast(dt, bfmethod, h=12, frequency=12)
       dt <- reconcile.all(dt)
-      accs <- evaluate.hts(dt, metrics, type = "nl")
+      # accs <- evaluate.hts(dt, metrics, type = "nl")
       output <- add_result(output,
                            representotar = representator,
                            distance = distance,
                            cluster = paste0("hcluster-", method),
-                           accs = accs,
+                           rf = dt$nl[[1]]$rf,
                            other = list(S = as(dt$nl[[1]]$S, "sparseMatrix")))
     }
   }
@@ -74,12 +74,12 @@ for (representator in c("ts", "error", "ts.features", "error.features", "forecas
                       n_clusters = c(2, 2, 2, 2))
     dt <- forecast(dt, bfmethod, h=12, frequency=12)
     dt <- reconcile.all(dt)
-    accs <- evaluate.hts(dt, metrics, type = "nl")
+    # accs <- evaluate.hts(dt, metrics, type = "nl")
     output <- add_result(output, 
                          representotar = representator, 
                          distance = distance, 
                          cluster = "kmedoids-d-nested-2222", 
-                         accs = accs,
+                         rf = dt$nl[[1]]$rf,
                          other = list(S = as(dt$nl[[1]]$S, "sparseMatrix")))
   }
 }
@@ -95,12 +95,12 @@ for (representator in c("ts", "error", "ts.features", "error.features", "forecas
                       n_clusters = c(3, 3, 3))
     dt <- forecast(dt, bfmethod, h=12, frequency=12)
     dt <- reconcile.all(dt)
-    accs <- evaluate.hts(dt, metrics, type = "nl")
+    # accs <- evaluate.hts(dt, metrics, type = "nl")
     output <- add_result(output, 
                          representotar = representator, 
                          distance = distance, 
                          cluster = "kmedoids-d-nested-333", 
-                         accs = accs,
+                         rf = dt$nl[[1]]$rf,
                          other = list(S = as(dt$nl[[1]]$S, "sparseMatrix")))
   }
 }
@@ -116,16 +116,14 @@ for (representator in c("ts", "error", "ts.features", "error.features", "forecas
                         n_clusters = 3:20)
       dt <- forecast(dt, bfmethod, h=12, frequency=12)
       dt <- reconcile.all(dt)
-      accs <- evaluate.hts(dt, metrics, type = "nl")
+      # accs <- evaluate.hts(dt, metrics, type = "nl")
       output <- add_result(output,
                            representotar = representator,
                            distance = distance,
                            cluster = "kmedoids-d-unnested",
-                           accs = accs,
+                           rf = dt$nl[[1]]$rf,
                            other = list(S = as(dt$nl[[1]]$S, "sparseMatrix")))
   }
 }
 
 saveResult()
-
-

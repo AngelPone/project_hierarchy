@@ -29,8 +29,8 @@ natural_data$nl <- list(list(S = unname(as.matrix(S[which(!(rownames(S) %in% col
 
 natural_data <- forecast(natural_data, bfmethod, frequency=12, h=12)
 natural_data <- reconcile.all(natural_data)
-accs <- evaluate.hts(natural_data, metrics, type = "nl")
-output <- add_result(output, "", "", "natural", accs, other = list(
+# accs <- evaluate.hts(natural_data, metrics, type = "nl")
+output <- add_result(output, "", "", "natural", natural_data$nl[[1]]$rf, other = list(
   S = as(natural_data$nl[[1]]$S, "sparseMatrix")
 ))
 saveResult()
@@ -46,24 +46,21 @@ for (n_repeat in c(20, 50, 100)) {
                         n_clusters = rep(n_cluster, n_repeat))
     data <- forecast(data, bfmethod, frequency=12, h=12)
     data <- reconcile.all(data)
-    accs <- evaluate.hts(data, metrics, type = "average")
-    accs_single <- evaluate.hts(data, metrics, type = "nl")
     
-    accs_single <- lapply(1:n_repeat, function(x) {
-      tmp <- lapply(metrics, function(metric){
-        accs_single[[metric]][[x]]
-      })
-      names(tmp) <- metrics
-      tmp
-    })
-    
-    for (acc in seq_along(accs_single)) {
-      output <- add_result(output, "", "", paste0("random-single-", n_cluster), accs_single[[acc]],
+    for (nl in seq_along(data$nl)) {
+      output <- add_result(output, "", "", paste0("random-single-", n_cluster), nl$rf,
                            other = list(n_clusters = n_cluster, S = as(data$nl[[acc]]$S, "sparseMatrix")))
     }
     
-    output <- add_result(output, "", "", paste0("random-average-", n_cluster, "-", n_repeat), accs, other = list(n_clusters = n_cluster, average=n_repeat,
-                                                                                                                 S = lapply(data$nl, function(x){ as(x$S, "sparseMatrix") })))
+    nl_average <- lapply(names(data$nl[[1]]$rf), function(rf_method) {
+      Reduce(`x`, lapply(seq_along(data$nl), function(l) {
+        data$nl[[l]]$rf[[rf_method]]
+      }), accumulate = TRUE)
+    })
+    
+    output <- add_result(output, "", "", paste0("random-average-", n_cluster, "-", n_repeat), nl_average, 
+                         other = list(n_clusters = n_cluster, average=n_repeat,
+                                      S = lapply(data$nl, function(x){ as(x$S, "sparseMatrix") })))
   }
 }
 saveResult()
@@ -80,20 +77,21 @@ for (nrepeat in c(20, 100)) {
   })
   data <- forecast(data, bfmethod, frequency=12, h=12)
   data <- reconcile.all(data)
-  accs <- evaluate.hts(data, metrics, type="average")
-  accs_single <- evaluate.hts(data, metrics, type="nl")
-  accs_single <- lapply(1:nrepeat, function(x) {
-    tmp <- lapply(metrics, function(metric){
-      accs_single[[metric]][[x]]
-    })
-    names(tmp) <- metrics
-    tmp
-  })
-  for (acc in seq_along(accs_single)) {
-    output <- add_result(output, "", "", paste0("random-single-natural"), accs_single[[acc]],
+  
+  for (nl in seq_along(data$nl)) {
+    output <- add_result(output, "", "", "random-single-natural", nl$rf,
                          other = list(S = as(data$nl[[acc]]$S, "sparseMatrix")))
   }
-  output <- add_result(output, "", "", paste0("random-average-natural-", nrepeat), accs, other = list(average=nrepeat, S = lapply(data$nl, function(x){ as(x$S, "sparseMatrix") })))
+  
+  nl_average <- lapply(names(data$nl[[1]]$rf), function(rf_method) {
+    Reduce(`x`, lapply(seq_along(data$nl), function(l) {
+      data$nl[[l]]$rf[[rf_method]]
+    }), accumulate = TRUE)
+  })
+  
+  output <- add_result(output, "", "", paste0("random-average-natural-", n_repeat), nl_average, 
+                       other = list(average=n_repeat,
+                                    S = lapply(data$nl, function(x){ as(x$S, "sparseMatrix") })))
 }
 
 saveResult()

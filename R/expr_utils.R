@@ -16,18 +16,18 @@ saveResult <- function() {
 }
 
 add_result <- function(output, representotar, distance, 
-                       cluster, accs, other = NULL) {
+                       cluster, rf, other = NULL) {
   if (is.null(output$representator)) {
     output$representator <- representotar
     output$distance <- distance
     output$cluster <- cluster
-    output$accuracy <- list(accs)
+    output$rf <- list(rf)
     output$other <- list(other)
   } else {
     output$representator <- c(output$representator, representotar)
     output$distance <- c(output$distance, distance)
     output$cluster <- c(output$cluster, cluster)
-    output$accuracy <- append(output$accuracy, list(accs))
+    output$rf <- append(output$accuracy, list(rf))
     output$other <- append(output$other, list(other))
   }
   output

@@ -27,11 +27,11 @@ for (batch in 0:11) {
   
   ## bottom and total forecast
   data <- forecast(data, bfmethod, h=12, frequency=12)
-  accs <- evaluate.hts(data, metrics, type = "base")
-  output <- add_result(output, "", "", "", accs)
+  # accs <- evaluate.hts(data, metrics, type = "base")
+  # output <- add_result(output, "", "", "", data$nl[[1]])
   data <- reconcile.all(data)
-  accs <- evaluate.hts(data, metrics, type = "rf")
-  output <- add_result(output, "", "", "", accs)
+  # accs <- evaluate.hts(data, metrics, type = "rf")
+  output <- add_result(output, "", "", "", data$nl[[1]]$rf)
   
   
   print("computing features .....")
