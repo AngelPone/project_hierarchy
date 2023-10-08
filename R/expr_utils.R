@@ -6,14 +6,6 @@ create_new_output <- function() {
   output
 }
 
-saveResult <- function() {
-  saveRDS(list(bfstore = BASEFORECAST_STORE,
-               data = data,
-               output = output,
-               features = FEATURES,
-               distance = DISTANCEMAT),
-          store_path)
-}
 
 add_result <- function(output, representotar, distance, 
                        cluster, rf, other = NULL) {

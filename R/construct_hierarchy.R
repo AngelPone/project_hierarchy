@@ -24,12 +24,113 @@ hts <- function(S, bts, tts) {
       S = S, bts = bts, tts = tts,
       nl = list(),
       basef = NULL,
-      rf = NULL
+      resid = NULL,
+      features = NULL,
+      distance = NULL
     ),
     class = "hts"
   )
 }
 
+
+add_nl <- function(data, S, representor, distance, cluster, other=NULL) {
+  if (!is.null(S)) { S <- as(S, "sparseMatrix") }
+  data$nl[[length(data$nl)+1]] <- list(representor = representor, distance = distance, 
+                       cluster = cluster, other = other,
+                       S=S, rf=list())
+  data
+}
+
+hts.basef <- function(x, f_str, h, frequency) {
+  if (is.null(x$basef)) {
+    f <- get(paste0("f.", f_str))
+    all_ts <- x$bts %*% t(x$S)
+    bf <- foreach::foreach(x = iterators::iter(all_ts, by = "column"), .packages = c("forecast")) %dopar% {
+      f(x, h=h, frequency=frequency)
+    }
+    x$basef <- unname(do.call(cbind, lapply(bf, function(x){x$basef})))
+    x$resid <- unname(do.call(cbind, lapply(bf, function(x){x$resid})))
+  }
+  x
+}
+
+nl2tibble <- function(x) {
+  output <- vector("list", 6)
+  names(output) <- c("representor", "cluster", "distance", "S", "rf", "other")
+  
+  for (i in seq_along(x)) {
+    for (n in names(x[[i]])) {
+      if (is.character(x[[i]][[n]])) {
+        output[[n]] <- append(output[[n]], x[[i]][[n]])
+      } else {
+        output[[n]] <- append(output[[n]], list(x[[i]][[n]]))
+      }
+    }
+  }
+  tibble::as_tibble(output)
+}
+
+hts.nlf <- function(htst, f_str, h, frequency) {
+  f <- get(paste0("f.", f_str))
+  
+  
+  smat2sstr <- function(S) {
+    S_str <- c()
+    for (i in 1:NROW(S)) {
+      S_str <- c(S_str, do.call(paste0, as.list(S[i,])))
+    }
+    S_str
+  }
+  
+  S <- do.call(rbind, lapply(htst$nl, function(g) { g$S }))
+  print(sprintf("totally %s series are constructed", NROW(S)))
+  S_str <- smat2sstr(as.matrix(S))
+  fcasts <- list()
+  
+  for (idx in seq_along(S_str)) {
+    if (S_str[idx] %in% names(fcasts)) {
+      next
+    } else {
+      fcasts[[S_str[idx]]] <- S[idx, ]
+    }
+  }
+  
+  S_toforecast <- do.call(rbind, fcasts)
+  print(sprintf("totally %s series are forecast", NROW(S_toforecast)))
+  
+  allts <- htst$bts %*% t(S_toforecast)
+  
+  
+  bf <- foreach::foreach(x = iterators::iter(allts, by = "column"), .packages = c("forecast")) %dopar% {
+    f(x, h=h, frequency=frequency)
+  }
+  names(bf) <- names(fcasts)
+  
+  rfs <- foreach(nl=iterators::iter(htst$nl)) %do% {
+    
+    S_nl <- NULL
+    if (!is.null(nl$S)) {
+      S_nl <- as.matrix(nl$S)
+    }
+    
+    S_str <- smat2sstr(S_nl)
+    basef_nl <- do.call(cbind, lapply(S_str, function(g) { bf[[g]]$basef }))
+    resid_nl <- do.call(cbind, lapply(S_str, function(g) { bf[[g]]$resid }))
+    
+    basef <- cbind(htst$basef[,1], basef_nl, htst$basef[,2:NCOL(htst$basef)])
+    resid <- cbind(htst$resid[,1], resid_nl, htst$resid[,2:NCOL(htst$basef)])
+    
+
+    S <- rbind(rep(1, NCOL(data$S)), S_nl, diag(NCOL(data$S)))
+    
+    reconcile.all(S, basef, resid)
+  }
+  
+  for (l in seq_along(htst$nl)) {
+    htst$nl[[l]]$rf <- rfs[[l]]
+  }
+  htst
+}
 
 
 #' function to iterator over S, find the forecast store and return the forecast
@@ -56,18 +157,13 @@ fhts_helper <- function(S, all_ts, f_str, h, frequency) {
   stored_forecasts
 }
 
+
+
+
 #' function to forecast hts
 #' @param x hts
 #' @param f_str baseforecast method string
 forecast.hts <- function(x, f_str, h, frequency){
-  if (is.null(x$basef)) {
-    all_ts <- x$bts %*% t(x$S)
-    
-    bf <- fhts_helper(x$S, all_ts, f_str, h, frequency)
-    
-    x$basef <- unname(do.call(cbind, lapply(bf, function(x){x$basef})))
-    x$resid <- unname(do.call(cbind, lapply(bf, function(x){x$resid})))
-  }
   
   if (length(x$nl) > 0) {
     new_S <- do.call(rbind, lapply(x$nl, function(g){ g$S }))
@@ -120,94 +216,19 @@ is.hts <- function(x) {
 #' @return hts object with new levels
 build_level <- function(
     hts,
-    representator,
+    representor,
     distance,
     cluster,
-    keep_old = FALSE,
     ...) {
   
   stopifnot(is.hts(hts))
   
   n <- NCOL(hts$bts)
   
-  distance_mat <- DISTANCEMAT[[representator]][[distance]]
+  distance_mat <- hts$distance[[representor]][[distance]]
   
-  group_result <- cluster(distance_mat, ...)
-  
-  # temporal function that group list to summing matrix
-  nl <- lapply(group_result, function(x) {
-    list(S = x, basef = NULL)
-  })
-  
-  concat_str <- function(x){
-    do.call(paste0, as.list(x))
-  }
-  
-  # remove duplicated rows
-  orig_rows <- apply(hts$S, 1, concat_str)
-  if (keep_old) {
-    orig_rows <- append(orig_rows, do.call(c, lapply(hts$nl, function(g) {apply(g$S, 1, concat_str)})))
-  }
-  
-  for (i in seq_along(nl)) {
-    nl[[i]]$S <-nl[[i]]$S[which(!(apply(nl[[i]]$S, 1, concat_str) %in% orig_rows)),,drop=FALSE]
-  }
-  
-  nl <- Filter(function(x){NROW(x$S) > 0}, nl)
-  
-  
-  if (keep_old) {
-    hts$nl <- append(hts$nl, nl)
-  } else {
-    hts$nl <- nl
-  }
-  
-  hts
+  cluster(distance_mat, ...)
 }
 
-
-#' #' lloyd k-means implementation
-#' #' 
-#' #' Standardization: each ts is divided by standard error of itself
-#' #' Initialization: randomly choose n_clusters ts as initial centers
-#' #' New centers: arithmetic mean of samples in cluster
-#' #' Termination: distance between new center and old center smaller than 
-#' #' tolerance, or exceed max iteration numbers
-#' #' 
-#' kmeans <- function(ts_mat, distance, n_clusters, max_iter = 100, tol=1e-4) {
-#'   # standardization
-#'   ts_mat <- apply(ts_mat, 2, function(x)( x/sd(x) ))
-#'   
-#'   n <- NCOL(ts_mat)
-#'   # Initialization, forgy method
-#'   center <- ts_mat[,sample(1:n, n_clusters)]
-#'   
-#'   iter_num <- 0
-#'   
-#'   while(TRUE) {
-#'     iter_num <- iter_num + 1
-#'     # compute new clusters
-#'     grplst <- vector(mode = "list", length = n_clusters)
-#'     
-#'     minidx <- apply(ts_mat, 2, function(x){
-#'       which.min(apply(center, 2, function(c) { distance(c, x) }))
-#'     })
-#'     
-#'     for (i in seq_along(grplst)) {
-#'       grplst[[i]] <- which(minidx == i)
-#'     }
-#'     
-#'     # cluster new centers
-#'     new_center <- 
-#'       do.call(cbind, lapply(grplst, function(grp) { rowMeans(matrix(ts_mat[,grp], ncol = length(grp))) }))
-#'     
-#'     if ((distance(new_center, center) < tol) | (iter_num > max_iter)) {
-#'       break
-#'     } else {
-#'       center <- new_center
-#'     }
-#'   }
-#'   list(grplst)
-#' }
 
 

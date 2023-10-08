@@ -25,43 +25,42 @@ representator.error <- function(x){
   })
 }
 
-feature_lst <- c("acf_features", "arch_stat", "autocorr_features", "crossing_points", "dist_features",
-                 "entropy", "heterogeneity", "hurst", "lumpiness", "stability", "pacf_features", "stl_features",
-                 "unitroot_kpss", "unitroot_pp", "nonlinearity", "max_level_shift", "max_var_shift", "max_kl_shift",
-                 "holt_parameters", "hw_parameters", "flat_spots")
+
 
 features.compute <- function(data, frequency=frequency) {
-  library(tsfeatures)
-  FEATURES <<- list()
-  ts_features <- tsfeatures(ts(data$bts, frequency = frequency), features = feature_lst)
-  FEATURES$ts <<- t(unname(as.matrix(ts_features[,!(colnames(ts_features) %in% c("nperiods", "seasonal_period"))])))
   
+  feature_lst <- c("acf_features", "arch_stat", "autocorr_features", "crossing_points", "dist_features",
+                   "entropy", "heterogeneity", "hurst", "lumpiness", "stability", "pacf_features", "stl_features",
+                   "unitroot_kpss", "unitroot_pp", "nonlinearity", "max_level_shift", "max_var_shift", "max_kl_shift",
+                   "holt_parameters", "hw_parameters", "flat_spots")
   remove_zero_sd <- function(x){
     x[which(apply(x, 1, sd) > 0),]
   }
   
-  FEATURES$ts <<- remove_zero_sd(FEATURES$ts)
+  data$features <- list()
   
-  error_features <- tsfeatures(ts(data$resid[,2:NCOL(data$resid)], frequency = frequency), features = feature_lst)
-  FEATURES$error <<- t(unname(as.matrix(error_features[,!(colnames(error_features) %in% c("nperiods", "seasonal_period"))])))
-  FEATURES$error <<- remove_zero_sd(FEATURES$error)
+  ts_features <- tsfeatures::tsfeatures(ts(data$bts, frequency = frequency), features = feature_lst)
+  ts_features <- t(unname(as.matrix(ts_features[,!(colnames(ts_features) %in% c("nperiods", "seasonal_period"))])))
+  ts_features <- remove_zero_sd(ts_features)
+  
+  error_features <- tsfeatures::tsfeatures(ts(data$resid[,2:NCOL(data$resid)], frequency = frequency), features = feature_lst)
+  error_features <- t(unname(as.matrix(error_features[,!(colnames(error_features) %in% c("nperiods", "seasonal_period"))])))
+  error_features <- remove_zero_sd(error_features)
+  
+  data$features$ts <- remove_zero_sd(ts_features)
+  data$features$error <- error_features
+  data
 }
 
 
 representator.ts.features <- function(x) {
-  if (is.null(FEATURES)) {
-    stop("FEATURES should be computed first!")
-  }
-  t(apply(FEATURES$ts, 1, function(g) {
+  t(apply(x$features$ts, 1, function(g) {
     (g - mean(g)) / sd(g)
   }))
 }
 
 representator.error.features <- function(x) {
-  if (is.null(FEATURES)) {
-    stop("FEATURES should be computed first!")
-  }
-  t(apply(FEATURES$error, 1, function(g) {
+  t(apply(x$features$error, 1, function(g) {
     (g - mean(g)) / sd(g)
   }))
 }

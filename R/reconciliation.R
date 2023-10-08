@@ -6,38 +6,43 @@ toMatrix <- function(x) {
   x
 }
 
-reconcile.all <- function(x, methods = c("ols", "wlss", "mint", "wlsv")){
-  stopifnot(!is.null(x$basef))
+reconcile.all <- function(S, basef, resid, methods = c("ols", "wlss", "mint", "wlsv")){
+  # stopifnot(!is.null(x$basef))
+  output <- list()
+  n <- NROW(S)
+  m <- NCOL(S)
+  for (method in methods) {
+    reconcile.method <- get(paste0("reconcile.", method))
+    output[[method]] <- toMatrix(reconcile.method(S, basef, resid)[, c(1, (n-m+1):n)])
+  }
+  output
   
   # without clusters
-  if (is.null(x$rf)) {
-    S <- x$S
-    resid <- x$resid
-    basef <- x$basef
-    x$rf <- list()
-    for (method in methods) {
-      reconcile.method <- get(paste0("reconcile.", method))
-      x$rf[[method]] <- toMatrix(reconcile.method(S, basef, resid))
-    }
-  }
-  # with clusters
-  
-  for (i in seq_along(x$nl)) {
-    stopifnot(!is.null(x$nl[[i]]$basef))
-    nl <- x$nl[[i]]
-    if (!is.null(nl$rf)) { next }
-    else { x$nl[[i]]$rf <- list() }
-    
-    S <- rbind(x$S, nl$S)
-    basef <- cbind(x$basef, nl$basef)
-    resid <- cbind(x$resid, nl$resid)
-    
-    for (method in methods) {
-      reconcile.method <- get(paste0("reconcile.", method))
-      x$nl[[i]]$rf[[method]] <- toMatrix(reconcile.method(S, basef, resid)[, 1:NROW(x$S)])
-    }
-  }
-  x
+  # if (is.null(x$rf)) {
+  #   S <- x$S
+  #   resid <- x$resid
+  #   basef <- x$basef
+  #   x$rf <- list()
+  #   for (method in methods) {
+  #     reconcile.method <- get(paste0("reconcile.", method))
+  #     x$rf[[method]] <- toMatrix(reconcile.method(S, basef, resid))
+  #   }
+  # }
+  # # with clusters
+  # 
+  # for (i in seq_along(x$nl)) {
+  #   stopifnot(!is.null(x$nl[[i]]$basef))
+  #   nl <- x$nl[[i]]
+  #   if (!is.null(nl$rf)) { next }
+  #   else { x$nl[[i]]$rf <- list() }
+  #   
+  #   S <- rbind(x$S, nl$S)
+  #   basef <- cbind(x$basef, nl$basef)
+  #   resid <- cbind(x$resid, nl$resid)
+  #   
+  #   
+  # }
+  # x
 }
 
 reconcile.ols <- function(S, basef, resid) {
