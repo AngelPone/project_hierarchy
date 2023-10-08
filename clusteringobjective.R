@@ -1,25 +1,21 @@
-batch <- 120
+batch <- 0
 
-data <- readRDS(sprintf("tourism/ets/batch_%s.rds", batch))
+data <- readRDS(sprintf("tourism/ets/store_%s.rds", batch))$distance
 
-objs2 <- list()
+objs <- list()
 
 for (representor in REPRESENTORS) {
-  objs2[[representor]] <- list()
+  objs[[representor]] <- list()
   for (distance in DISTANCES) {
-    objs2[[representor]][[distance]] <- foreach(n_clusters = 1:15, .packages = "cluster") %do% {
+    objs[[representor]][[distance]] <- foreach(n_clusters = 1:15, .packages = "cluster") %do% {
       
-      distance_mat <- data$distance[[representor]][[distance]]
+      distance_mat <- data[[representor]][[distance]]
       pam(distance_mat, k = n_clusters, diss=TRUE)$objective
     }
   }
 }
 
-for (representor in REPRESENTORS) {
-  for (distance in DISTANCES) {
-    objs2[[representor]][[distance]] <- do.call(rbind, objs2[[representor]][[distance]])
-  }
-}
+
 for (representor in REPRESENTORS) {
   for (distance in DISTANCES) {
     objs[[representor]][[distance]] <- do.call(rbind, objs[[representor]][[distance]])
