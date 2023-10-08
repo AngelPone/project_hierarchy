@@ -9,8 +9,10 @@ doParallel::registerDoParallel(cl)
 source("R/construct_hierarchy.R", chdir = T)
 
 
+
 mortality <- read.csv("data/mortality.csv")
-colnames(mortality) <- stringi::stri_replace_all_fixed(colnames(mortality), ".", "-")
+colnames(S) <- stringi::stri_replace_all_fixed(colnames(S), ".", "-")
+
 
 
 for (batch in 0:11) {
@@ -40,22 +42,22 @@ for (batch in 0:11) {
   # features.compute(data, frequency = 12)
   
   print("computing distance matrix ....")
-  # DISTANCEMAT <- list()
-  # for (representor in c("ts", "error", "ts.features", "error.features", "forecast")) {
-  #   DISTANCEMAT[[representor]] <- list()
-  #   for (distance in c("euclidean", "dtw", "negcor", "cor", "uncorrelation")) {
-  #     cluster_input <- get(paste0("representator.", representor))(data)
-  #     distance_mat <- matrix(0, 98, 98)
-  #     
-  #     for(i in 1:98) {
-  #       for (j in 1:i) {
-  #         distance_mat[i, j] <- get(paste0("distance.", distance))(cluster_input[, i], cluster_input[, j])
-  #         distance_mat[j, i] <- distance_mat[i, j]
-  #       }
-  #     }
-  #     DISTANCEMAT[[representor]][[distance]] <- distance_mat
-  #   }
-  # }
+  DISTANCEMAT <- list()
+  for (representor in c("ts", "error", "ts.features", "error.features", "forecast")) {
+    DISTANCEMAT[[representor]] <- list()
+    for (distance in c("euclidean", "dtw", "negcor", "cor", "uncorrelation")) {
+      cluster_input <- get(paste0("representator.", representor))(data)
+      distance_mat2 <- matrix(0, m, m)
+
+      for(i in 1:m) {
+        for (j in 1:i) {
+          distance_mat2[i, j] <- distance_method(cluster_input[, i], cluster_input[, j])
+          distance_mat2[j, i] <- distance_mat2[i, j]
+        }
+      }
+      DISTANCEMAT[[representor]][[distance]] <- distance_mat
+    }
+  }
   DISTANCEMAT <- readRDS(sprintf("mortality/ets_backup/store_%s.rds", batch))$distance
   
   saveResult()
