@@ -1,8 +1,8 @@
-batch <- 0
+batch <- 11
 library(dplyr)
 library(ggplot2)
 mortality <- readRDS(sprintf("mortality/store_%s.rds", batch))$data
-tourism <- readRDS(sprintf("tourism/store_%s.rds", batch))$data
+tourism <- readRDS(sprintf("tourism/arima/store_%s.rds", batch))$data
 
 visual <- function(dt, idx) {
   
@@ -28,4 +28,44 @@ visual <- function(dt, idx) {
 }
 visual(tourism, sample(304, 4))
 visual(mortality, sample(98, 4))
+
+
+
+# dimensional reduction visualization
+tourism <- readRDS("tourism/arima/store_0.rds")
+mortality <- readRDS(sprintf("mortality/arima/store_%s.rds", batch))
+dmrvisualize <- function(dataset, representor, cluster, distance) {
+  ts <- get(paste0("representator.", representor))(dataset$data)
+  pca_res <- princomp(cor(ts))$loadings[,1:2]
+  
+  cluster <- dataset$output$cluster == cluster
+  distance <- dataset$output$distance == distance
+  representor <- dataset$output$representator == representor
+  
+  cluster_S <- dataset$output$other[[which(cluster & distance & representor)]]$S
+  cluster_S <- as.matrix(cluster_S)
+  
+  grp <- vector("numeric", NROW(pca_res))
+  
+  for (i in 1:NROW(cluster_S)) {
+    grp[which(cluster_S[i,] == 1)] <- i
+  }
+  pca_res <- as_tibble(pca_res) %>% mutate(group = as.character(grp))
+  
+  
+  ggplot(pca_res) +
+    geom_point(aes(x = Comp.1, y=Comp.2, color=group, group=group))
+}
+
+
+dmrvisualize(tourism, "ts", "kmedoids-5", "euclidean")
+dmrvisualize(mortality, "ts", "kmedoids-5", "euclidean")
+
+
+dmrvisualize(mortality, "error", "kmedoids-5", "negcor")
+dmrvisualize(tourism, "error", "kmedoids-5", "negcor")
+
+dmrvisualize(mortality, "ts", "kmedoids-5", "euclidean")
+
+
 
