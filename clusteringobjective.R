@@ -4,6 +4,9 @@ data <- readRDS(sprintf("tourism/ets/store_%s.rds", batch))$distance
 
 objs <- list()
 
+REPRESENTORS <- c("ts", "error", "ts.features", "error.features", "forecast")
+DISTANCES <- c("euclidean", "dtw", "negcor", "cor", "uncorrelation")
+
 for (representor in REPRESENTORS) {
   objs[[representor]] <- list()
   for (distance in DISTANCES) {

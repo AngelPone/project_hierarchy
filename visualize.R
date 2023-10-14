@@ -104,11 +104,16 @@ visualizeRSA(tourism, 79, order = 12)
 
 
 
-visualizeGroupCOR <- function(dataset, representor, distance, cluster) {
-  cluster_ <- dataset$output$cluster == cluster
-  representor_ <- dataset$output$representator == representor
-  distance_ <- dataset$output$distance == distance
-  cluster_S <- as.matrix(dataset$output$other[[which(cluster_ & representor_ & distance_)]]$S)
+visualizeGroupCOR <- function(dataset, representor, distance, cluster, idx = NULL) {
+  
+  if (!is.null(idx)) {
+    cluster_S <- as.matrix(dataset$output$other[[idx]]$S)
+  } else {
+    cluster_ <- dataset$output$cluster == cluster
+    representor_ <- dataset$output$representator == representor
+    distance_ <- dataset$output$distance == distance
+    cluster_S <- as.matrix(dataset$output$other[[which(cluster_ & representor_ & distance_)]]$S)
+  }
   
   par(mfrow = c(1, 2))
   for (i in 1:NROW(cluster_S)) {
@@ -126,6 +131,61 @@ visualizeGroupCOR <- function(dataset, representor, distance, cluster) {
 visualizeGroupCOR(mortality, "error", "uncorrelation", "kmedoids-4")
 dmrvisualize(mortality, "error", "kmedoids-4", "euclidean")
 
+accuracy_order <- function(dataset, rf_method, accuracy_method){
+  lapply(dataset$output$accuracy[which(!startsWith(mortality$output$cluster, "random-single"))[-1]], function(x){
+    c(x[[accuracy_method]][[rf_method]]$total, 
+      x[[accuracy_method]][[rf_method]]$bottom)
+  }) %>% do.call(rbind, .) %>%
+    rbind(c(dataset$output$accuracy[[1]][[accuracy_method]]$base$total,
+            dataset$output$accuracy[[1]][[accuracy_method]]$base$bottom),
+          .)
+}
+
+method_comb <- function(dataset, idx) {
+  idx <- which(!startsWith(mortality$output$cluster, "random-single"))[idx]
+  c(representor = dataset$output$representator[idx],
+    distance = dataset$output$distance[idx],
+    cluster = dataset$output$cluster[idx],
+    other = dataset$output$other[[idx]])
+}
 
 
 
+mortality_rmse_mint <- accuracy_order(mortality, "mint", "rmse")
+
+rank_rmse_mint <- cbind(mortality_rmse_mint[,1], 
+     mortality_rmse_mint[,2:NCOL(mortality_rmse_mint)]) %>% t() %>%
+  apply(1, rank) %>%
+  rowMeans()
+
+visualizeGroupCOR(mortality, best_$representor, best_$distance, best_$cluster, idx = NULL)
+
+visualizeSeriesError <- function(dataset, method) {
+  cluster_ <- dataset$output$cluster == method$cluster
+  representor_ <- dataset$output$representator == method$representor
+  distance_ <- dataset$output$distance == method$distance
+  cluster_S <- as.matrix(dataset$output$other[[which(cluster_ & representor_ & distance_)]]$S)
+  par(mfrow = c(1,2))
+  for (i in 1:NROW(cluster_S)) {
+    if (sum(cluster_S[i,]) <= 10) {
+      series <- ts(dataset$data$bts[,which(cluster_S[i,] == 1)], frequency = 12)
+      colnames(series) <- colnames(mortality_S)[which(cluster_S[i,] == 1)]
+      resids <- dataset$data$resid[,which(cluster_S[i,] == 1) + 1]
+      colnames(resids) <- colnames(mortality_S)[which(cluster_S[i,] == 1)]
+      plot(series, main = sprintf("series Group = %s", i))
+      plot(resids, main = sprintf("residuals Group = %s", i))
+    }
+  }
+}
+
+mortality_S <- read.csv("data/S.csv", col.names = 1)
+colnames(mortality_S) <- stringi::stri_replace_all_fixed(colnames(mortality_S), ".", "-")
+
+best_ <- method_comb(mortality, 385)
+visualizeSeriesError(mortality, best_)
+
+best2_ <- method_comb(mortality, 116)
+visualizeSeriesError(mortality, best2_)
+
+
+order(rank_rmse_mint)
