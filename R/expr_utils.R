@@ -32,7 +32,5 @@ output_pre <- function(output) {
     tidyr::unnest_wider(accuracy)
 }
 
-metrics <- c("mae", "rmse")
-
 
 

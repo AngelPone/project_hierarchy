@@ -1,8 +1,14 @@
 batch <- 11
 library(dplyr)
 library(ggplot2)
-mortality <- readRDS(sprintf("mortality/store_%s.rds", batch))$data
-tourism <- readRDS(sprintf("tourism/arima/store_%s.rds", batch))$data
+bfmethod <- "ets"
+
+mortality <- readRDS(sprintf("mortality/%s/store_%s.rds", bfmethod, batch))
+tourism <- readRDS(sprintf("tourism/%s/store_%s.rds", bfmethod, batch))
+
+mortality_arima <- readRDS(sprintf("mortality/%s/store_%s.rds", "arima", batch))
+tourism_arima <- readRDS(sprintf("tourism/%s/store_%s.rds", "arima", batch))
+
 
 visual <- function(dt, idx) {
   
@@ -26,14 +32,12 @@ visual <- function(dt, idx) {
     geom_line() +
     facet_wrap(~ type + name, nrow = 2)
 }
-visual(tourism, sample(304, 4))
-visual(mortality, sample(98, 4))
+visual(tourism$data, sample(304, 4))
+visual(mortality$data, sample(98, 4))
 
 
 
 # dimensional reduction visualization
-tourism <- readRDS("tourism/arima/store_0.rds")
-mortality <- readRDS(sprintf("mortality/arima/store_%s.rds", batch))
 dmrvisualize <- function(dataset, representor, cluster, distance) {
   dataset$data$features <- dataset$features
   ts <- get(paste0("representator.", representor))(dataset$data)
@@ -88,20 +92,20 @@ gridExtra::grid.arrange(
 visualizeRSA <- function(dataset, idx, order = NULL) {
   par(mfrow = c(2,2))
   plot(dataset$data$resid[, idx+1], main = sprintf("residual index=%s", idx))
-  plot(ts(dataset$data$bts[, idx+1], frequency = 12), main = sprintf("time series entropy = %.2f", entropy(dataset$data$bts[, idx+1], order = order)))
-  acf(dataset$data$resid[, idx], main = sprintf("acf of residual entropy = %.2f", entropy(dataset$data$resid[,idx], order = order)))
+  plot(ts(dataset$data$bts[, idx], frequency = 12), main = sprintf("time series entropy = %.2f,unitroot = %.2f", entropy(dataset$data$bts[, idx], order = order), tsfeatures::unitroot_kpss(dataset$data$bts[, idx])))
+  acf(dataset$data$resid[, idx+1], main = sprintf("acf of residual entropy = %.2f", entropy(dataset$data$resid[,idx], order = order)))
   acf(dataset$data$bts[, idx], main = "acf of time series")
 }
 
-visualizeRSA(tourism, sample(98, 1))
+
+visualizeRSA(tourism, sample(304, 1))
 
 
-visualizeRSA(tourism, 33, order = 12)
-visualizeRSA(tourism, 78, order = 12)
-visualizeRSA(tourism, 93, order = NULL)
-visualizeRSA(tourism, 79, order = 12)
-
-
+visualizeRSA(tourism, 72, order = 12)
+visualizeRSA(tourism, 80, order = 12)
+visualizeRSA(tourism, 1, order = NULL)
+visualizeRSA(tourism, 5, order = NULL)
+visualizeRSA(mortality, sample(98, 1), order = NULL)
 
 
 visualizeGroupCOR <- function(dataset, representor, distance, cluster, idx = NULL) {
@@ -127,10 +131,6 @@ visualizeGroupCOR <- function(dataset, representor, distance, cluster, idx = NUL
   }
 }
 
-
-visualizeGroupCOR(mortality, "error", "uncorrelation", "kmedoids-4")
-dmrvisualize(mortality, "error", "kmedoids-4", "euclidean")
-
 accuracy_order <- function(dataset, rf_method, accuracy_method){
   lapply(dataset$output$accuracy[which(!startsWith(mortality$output$cluster, "random-single"))[-1]], function(x){
     c(x[[accuracy_method]][[rf_method]]$total, 
@@ -142,25 +142,27 @@ accuracy_order <- function(dataset, rf_method, accuracy_method){
 }
 
 method_comb <- function(dataset, idx) {
-  idx <- which(!startsWith(mortality$output$cluster, "random-single"))[idx]
-  c(representor = dataset$output$representator[idx],
+  idx <- which(!startsWith(dataset$output$cluster, "random-single"))[idx]
+  list(representor = dataset$output$representator[idx],
     distance = dataset$output$distance[idx],
-    cluster = dataset$output$cluster[idx],
-    other = dataset$output$other[[idx]])
+    cluster = dataset$output$cluster[idx])
 }
 
 
 
-mortality_rmse_mint <- accuracy_order(mortality, "mint", "rmse")
-
-rank_rmse_mint <- cbind(mortality_rmse_mint[,1], 
-     mortality_rmse_mint[,2:NCOL(mortality_rmse_mint)]) %>% t() %>%
-  apply(1, rank) %>%
-  rowMeans()
 
 visualizeGroupCOR(mortality, best_$representor, best_$distance, best_$cluster, idx = NULL)
 
-visualizeSeriesError <- function(dataset, method) {
+visualizeSeriesError <- function(dataset, order = NULL, method = NULL) {
+  if (is.null(method)) {
+    acc_rank <- accuracy_order(dataset, "mint", "rmse")
+    rank_rmse_mint <- cbind(acc_rank[,1], 
+                            acc_rank[,2:NCOL(acc_rank)]) %>% t() %>%
+      apply(1, rank) %>%
+      rowMeans()
+    method <- method_comb(dataset, which(order(rank_rmse_mint) == order))
+  }
+  print(sapply(method, function(x){x}))
   cluster_ <- dataset$output$cluster == method$cluster
   representor_ <- dataset$output$representator == method$representor
   distance_ <- dataset$output$distance == method$distance
@@ -169,23 +171,24 @@ visualizeSeriesError <- function(dataset, method) {
   for (i in 1:NROW(cluster_S)) {
     if (sum(cluster_S[i,]) <= 10) {
       series <- ts(dataset$data$bts[,which(cluster_S[i,] == 1)], frequency = 12)
-      colnames(series) <- colnames(mortality_S)[which(cluster_S[i,] == 1)]
+      # colnames(series) <- colnames(mortality_S)[which(cluster_S[i,] == 1)]
       resids <- dataset$data$resid[,which(cluster_S[i,] == 1) + 1]
-      colnames(resids) <- colnames(mortality_S)[which(cluster_S[i,] == 1)]
+      # colnames(resids) <- colnames(mortality_S)[which(cluster_S[i,] == 1)]
       plot(series, main = sprintf("series Group = %s", i))
       plot(resids, main = sprintf("residuals Group = %s", i))
     }
   }
 }
 
-mortality_S <- read.csv("data/S.csv", col.names = 1)
-colnames(mortality_S) <- stringi::stri_replace_all_fixed(colnames(mortality_S), ".", "-")
-
-best_ <- method_comb(mortality, 385)
-visualizeSeriesError(mortality, best_)
-
-best2_ <- method_comb(mortality, 116)
-visualizeSeriesError(mortality, best2_)
+# mortality_S <- read.csv("data/S.csv")
+# colnames(mortality_S) <- stringi::stri_replace_all_fixed(colnames(mortality_S), ".", "-")
+# mortality_S <- mortality_S[,2:NCOL(mortality_S)]
 
 
-order(rank_rmse_mint)
+visualizeSeriesError(mortality, 2)
+visualizeSeriesError(mortality_arima, method = list(representor = "ts.features",
+                                        distance = "dtw",
+                                        cluster = "kmedoids-10"))
+
+visualizeSeriesError(tourism, 3)
+visualizeSeriesError(tourism_arima, 6)

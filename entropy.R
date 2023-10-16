@@ -36,23 +36,24 @@ compute_entropy <- function(dataset, bf_method, order = NULL) {
   do.call(abind::abind, list(output, along=0),)
 }
 
-# compute_tsentropy <- function(dataset, bf_method) {
-#   files <- dir(paste0(dataset, "/", bf_method))
-#   batches <- files[which(startsWith(files, "store_"))]
-#   
-#   output <- list()
-#   for (batch in batches) {
-#     dt <- readRDS(paste0(dataset, "/", bf_method, "/", batch))
-#     batch_n <- as.integer(strsplit(strsplit(batch, "_")[[1]][[2]], ".", fixed = TRUE)[[1]][[1]])
-#     bts <- dt$data$bts
-#     output[[batch_n+1]] <- apply(bts, 2, function(x){
-#       entropy(ts(x, frequency = 12))
-#     })
-#   }
-#   
-# }
+compute_tsentropy <- function(dataset, bf_method) {
+  files <- dir(paste0(dataset, "/", bf_method))
+  batches <- files[which(startsWith(files, "store_"))]
+
+  output <- list()
+  for (batch in batches) {
+    dt <- readRDS(paste0(dataset, "/", bf_method, "/", batch))
+    batch_n <- as.integer(strsplit(strsplit(batch, "_")[[1]][[2]], ".", fixed = TRUE)[[1]][[1]])
+    bts <- dt$data$bts
+    output[[batch_n+1]] <- apply(bts, 2, function(x){
+      entropy(ts(x, frequency = 12))
+    })
+  }
+  output
+}
 
 
+ts_entropy <- compute_tsentropy("mortality", "ets")
 
 mortality_ets <- compute_entropy("mortality", "ets", order = 1:12)
 mortality_arima <- compute_entropy("mortality", "arima", order = 1:12)
@@ -73,4 +74,4 @@ hist(mortality_arima)
 hist(tourism_arima)
 hist(tourism_ets)
 
-
+hist(ts_entropy[[1]])

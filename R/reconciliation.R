@@ -9,67 +9,36 @@ toMatrix <- function(x) {
 reconcile.all <- function(S, basef, resid, methods = c("ols", "wlss", "mint", "wlsv")){
   # stopifnot(!is.null(x$basef))
   output <- list()
-  n <- NROW(S)
+  idx <- c(which(rowSums(S) > 1), (NROW(S) - NCOL(S) + 1):NROW(S))
+  C <- S[which(rowSums(S) > 1),,drop=FALSE]
+  basef <- basef[,idx]
+  resid <- resid[,idx]
+  n <- length(idx)
   m <- NCOL(S)
+  
   for (method in methods) {
     reconcile.method <- get(paste0("reconcile.", method))
-    output[[method]] <- toMatrix(reconcile.method(S, basef, resid)[, c(1, (n-m+1):n)])
+    output[[method]] <- unname(toMatrix(reconcile.method(C, basef, resid)[, c(1, (n-m+1):n)]))
   }
   output
-  
-  # without clusters
-  # if (is.null(x$rf)) {
-  #   S <- x$S
-  #   resid <- x$resid
-  #   basef <- x$basef
-  #   x$rf <- list()
-  #   for (method in methods) {
-  #     reconcile.method <- get(paste0("reconcile.", method))
-  #     x$rf[[method]] <- toMatrix(reconcile.method(S, basef, resid))
-  #   }
-  # }
-  # # with clusters
-  # 
-  # for (i in seq_along(x$nl)) {
-  #   stopifnot(!is.null(x$nl[[i]]$basef))
-  #   nl <- x$nl[[i]]
-  #   if (!is.null(nl$rf)) { next }
-  #   else { x$nl[[i]]$rf <- list() }
-  #   
-  #   S <- rbind(x$S, nl$S)
-  #   basef <- cbind(x$basef, nl$basef)
-  #   resid <- cbind(x$resid, nl$resid)
-  #   
-  #   
-  # }
-  # x
 }
 
-reconcile.ols <- function(S, basef, resid) {
-  rm <- S %*% solve(t(S) %*% S, t(S) )
-  basef %*% t(rm)
+reconcile.ols <- function(C, basef, resid) {
+  # rm <- S %*% solve(t(S) %*% S, t(S) )
+  # basef %*% t(rm)
+  FoReco::htsrec(basef, "ols", C=C)$recf
 }
 
-reconcile.mint <- function(S, basef, resid) {
-  # lamb <- lambda_estimate(resid)
-  # W <- cov(resid)
-  W <- solve(lambda_estimate(resid))
-  rm <- S %*% solve(t(S) %*% W %*% S, t(S) %*% W)
-  
-  basef %*% t(rm)
+reconcile.mint <- function(C, basef, resid) {
+  FoReco::htsrec(basef, "shr", C=C, res = resid)$recf
 }
 
-reconcile.wlsv <- function(S, basef, resid) {
-  # W <- diag(1/apply(resid, 2, var))
-  W <- diag(1 /diag(crossprod(resid)))
-  rm <- S %*% solve(t(S) %*% W %*% S, t(S) %*% W)
-  basef %*% t(rm)
+reconcile.wlsv <- function(C, basef, resid) {
+  FoReco::htsrec(basef, "wls", C=C, res = resid)$recf
 }
 
-reconcile.wlss <- function(S, basef, resid) {
-  W <- diag(1/rowSums(S))
-  rm <- S %*% solve(t(S) %*% W %*% S, t(S) %*% W)
-  basef %*% t(rm)
+reconcile.wlss <- function(C, basef, resid) {
+  FoReco::htsrec(basef, "struc", C=C, res = resid)$recf
 }
 
 lambda_estimate <- function(error){

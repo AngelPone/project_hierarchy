@@ -54,22 +54,6 @@ hts.basef <- function(x, f_str, h, frequency) {
   x
 }
 
-nl2tibble <- function(x) {
-  output <- vector("list", 6)
-  names(output) <- c("representor", "cluster", "distance", "S", "rf", "other")
-  
-  for (i in seq_along(x)) {
-    for (n in names(x[[i]])) {
-      if (is.character(x[[i]][[n]])) {
-        output[[n]] <- append(output[[n]], x[[i]][[n]])
-      } else {
-        output[[n]] <- append(output[[n]], list(x[[i]][[n]]))
-      }
-    }
-  }
-  tibble::as_tibble(output)
-}
-
 hts.nlf <- function(htst, f_str, h, frequency) {
   f <- get(paste0("f.", f_str))
   
