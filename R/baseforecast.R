@@ -1,34 +1,11 @@
 library(forecast, quietly = TRUE)
 
 f.arima <- function(x, h, frequency){
-  if(length(x) == 1) {
-    stop("length == 1")
-  }
   mdl <- auto.arima(ts(x, frequency = frequency))
-  list(basef=forecast(mdl, h=h)$mean, resid=residuals(mdl))
+  list(basef=forecast(mdl, h=h)$mean, resid=residuals(mdl, type = "response"))
 }
 
 f.ets <- function(x, h, frequency) {
   mdl <- ets(ts(x, frequency = frequency))
-  list(basef=forecast(mdl, h=h)$mean, resid=residuals(mdl))
+  list(basef=forecast(mdl, h=h)$mean, resid=residuals(mdl, type = "response"))
 }
-
-#' List to store the base forecast of aggregated time series
-#' Base forecast of new aggregation will be saved into this store.
-
-
-#' @param x: row of S matrix
-#' @param method base forecast method
-f.store.read <- function(x, method) {
-  x_str <- do.call(paste0, as.list(x))
-  if (!(x_str %in% names(BASEFORECAST_STORE[[method]]))) {
-    return(NULL)
-  }
-  return(BASEFORECAST_STORE[[method]][[x_str]])
-}
-
-f.store.write <- function(x, method, fcasts) {
-  x_str <- do.call(paste0, as.list(x))
-  BASEFORECAST_STORE[[method]][[x_str]] <<- fcasts
-}
-
