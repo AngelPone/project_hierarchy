@@ -51,23 +51,39 @@ cluster.nestedkmedoids <- function(distance_mat, n_clusters) {
 #' kmedoids
 #' 
 cluster.kmedoids <- function(distance_mat, n_clusters) {
-  output <- vector("list", length(n_clusters))
-  for (i in seq_along(n_clusters)) {
-    output[[i]] <- pam(distance_mat, k = n_clusters[i], diss=TRUE,
-                       nstart = 10,
-                       cluster.only = TRUE)
+  
+  # calculate silhouette and determine optimal number of clusters
+  max.avgwidths <- 0
+  max.n_cluster <- 1
+  for (n_cluster in n_clusters) {
+    if (n_cluster == 1) next
+    pr <- pam(distance_mat, k=n_cluster, diss=TRUE)
+    clus_silwidth <- summary(silhouette(pr))
+    if (min(clus_silwidth$clus.avg.widths) < 0.1) next
+    if (clus_silwidth$avg.width > max.avgwidths) {
+      max.avgwidths <- clus_silwidth$avg.width
+      max.n_cluster <- n_cluster
+    }
   }
-  grplst2Slst <- function(grplsts) {
-    lapply(grplsts, function(grpvec) {
-      do.call(rbind, lapply(unique(grpvec), function(grp){
-        S_row <- vector("numeric", NCOL(distance_mat))
-        S_row[which(grpvec == grp)] <- 1
-        S_row
-      }))
-    })
+  if (max.n_cluster == 1) { return(NULL) }
+  
+  output <- pam(distance_mat, k = max.n_cluster, diss=TRUE,
+                nstart = 10)
+  grp2S <- function(grp) {
+    grpvec <- grp$clustering
+    do.call(rbind, lapply(unique(grpvec), function(grp){
+      S_row <- vector("numeric", NCOL(distance_mat))
+      S_row[which(grpvec == grp)] <- 1
+      S_row
+    }))
   }
   
-  list(do.call(rbind, grplst2Slst(output)))
+  list(S=grp2S(output), 
+       info = list(n_cluster = max.n_cluster, 
+                   width = summary(silhouette(output))$clus.avg.widths,
+                   avgwidth = summary(silhouette(output))$avg.width,
+                   medoids = output$id.med)
+       )
 }
 
 #' hierarchical clustering

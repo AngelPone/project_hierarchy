@@ -1,7 +1,7 @@
 
 #' Euclidean distance
 distance.euclidean <- function(x, y) { sqrt(sum((x - y)^2)) }
-
+distance.manhattan <- function(x, y) { sum(abs(x-y)) }
 
 library(dtw, quietly = TRUE)
 #' Dynamic Time Warping

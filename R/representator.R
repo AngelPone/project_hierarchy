@@ -7,7 +7,7 @@ representator.ts <- function(x) {
 representator.accuracy <- function(x) {
   sapply(2:NCOL(x$resid), function(idx) {
     sqrt(mean(x$resid[,idx]^2) / mean(diff(x$bts[,idx-1], 12)^2))
-  })
+  }) %>% matrix(nrow = 1)
 }
 
 representator.forecast <- function(x) {

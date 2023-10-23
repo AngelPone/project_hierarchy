@@ -180,15 +180,51 @@ visualizeSeriesError <- function(dataset, order = NULL, method = NULL) {
   }
 }
 
-# mortality_S <- read.csv("data/S.csv")
-# colnames(mortality_S) <- stringi::stri_replace_all_fixed(colnames(mortality_S), ".", "-")
-# mortality_S <- mortality_S[,2:NCOL(mortality_S)]
-
-
 visualizeSeriesError(mortality, 2)
+
 visualizeSeriesError(mortality_arima, method = list(representor = "ts.features",
-                                        distance = "dtw",
-                                        cluster = "kmedoids-10"))
+                                                    distance = "euclidean",
+                                                    cluster = "kmedoids-10"))
+
 
 visualizeSeriesError(tourism, 3)
 visualizeSeriesError(tourism_arima, 6)
+
+
+
+visualizeGroup2D <- function(dt, method) {
+  nl <- nl2tibble(dt$nl)
+  representor <- (nl$representor == method["representor"])
+  cluster <- (nl$cluster == method["cluster"])
+  distance <- (nl$distance == method["distance"])
+  
+  idx <- which(representor & cluster & distance)
+  distance_mat <- dt$distance[[method["representor"]]][[method["distance"]]]
+  d2scaled <- cmdscale(distance_mat, 2, eig = TRUE)
+  
+  d2scaled <- tibble(x=d2scaled$points[,1], y=d2scaled$points[,2])
+  S <- (dt$nl[[idx]]$S)
+  p <- ggplot(d2scaled, mapping = aes(x=x,y=y))
+  
+  if (!is.null(S)) {
+    grpvec <- vector("integer", NCOL(S))
+    sapply(1:NROW(S), function(x) { grpvec[which(S[x,] == 1)] <<- x })
+    grpvec[dt$nl[[idx]]$other$medoids] <- "medoids"
+    d2scaled$cluster <-  grpvec
+    p <- p + geom_point(aes(color = cluster, group = cluster), data = d2scaled)
+  } else {
+    p <- p + geom_point()
+  }
+   p + ggtitle(sprintf("%s %s", method["representor"], method["distance"]))
+}
+
+
+visualizeGroup2D(mortality, c(representor = "accuracy",
+                              distance = "euclidean",
+                              cluster = "Kmedoids"))
+
+
+
+
+
+

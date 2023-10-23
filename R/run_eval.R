@@ -20,7 +20,33 @@ source("R/metrics.R")
 hts.eval <- function(df, metrics, tts, bts) {
   tts <- cbind(rowSums(tts), tts)
   bts <- cbind(rowSums(bts), bts)
-
+  
+  # random
+  randoms <- unique(df$cluster[which(startsWith(df$cluster, "random"))])
+  df_random <- list()
+  df_random$S <- vector("list", 3*length(randoms))
+  df_random$other <- vector("list", 3*length(randoms))
+  df_random$cluster <- c()
+  df_random$rf <- list()
+  df_random$representor <- rep("", 3*length(randoms))
+  df_random$distance <- rep("", 3*length(randoms))
+  for (rd in randoms) {
+    tmpdt <- df %>% filter(cluster == rd)
+    for (random_n in c(10, 20, 50)) {
+      avg_rf <- list()
+      for (rf_method in c("ols", "wlss", "wlsv", "mint")) {
+        avg_rf_method <- 
+          do.call(abind::abind, list(lapply(tmpdt$rf, function(x) x[[rf_method]]), along=0))
+        avg_rf[[rf_method]] <- 
+          apply(avg_rf_method[1:random_n, ,], c(2, 3), mean)
+      }
+      df_random$cluster <- c(df_random$cluster, paste0(rd, "-", random_n))
+      df_random$rf <- append(df_random$rf, list(avg_rf))
+    }
+  }
+  df <- df %>% filter(!startsWith(cluster, "random")) %>%
+    rbind(as_tibble(df_random))
+  
   for (metric in metrics) {
     accuracy_method <- get(paste0("metric.", metric))
     
@@ -80,3 +106,6 @@ for (batch in 0:batch_length) {
 }
 
 saveRDS(list(base = dtb_base, dtb = dtb), sprintf("%s/%s/eval.rds", path, bfmethod))
+
+
+
