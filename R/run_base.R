@@ -19,36 +19,39 @@ forecast_horizon <- 12
 frequency <- 12
 batch_length <- time_length - 96 - forecast_horizon
 
-REPRESENTORS <- c(rep(c("ts", "error", "forecast"), each = 6),
-                  "ts.features", "error.features","ts.features", "error.features", "accuracy")
-DISTANCES <- c(rep(c("euclidean", "manhattan", "dtw", "negcor", "cor", "uncorrelation"), 3),
-               "euclidean", "euclidean", "manhattan", "manhattan", "euclidean")
-
+# REPRESENTORS <- c(rep(c("ts", "error", "forecast"), each = 6),
+#                   "ts.features", "error.features","ts.features", "error.features", "accuracy")
+# DISTANCES <- c(rep(c("euclidean", "manhattan", "dtw", "negcor", "cor", "uncorrelation"), 3),
+#                "euclidean", "euclidean", "manhattan", "manhattan", "euclidean")
+REPRESENTORS <- c("ts-dr", "error-dr", "ts.features-dr", "error.features-dr")
+DISTANCES <- rep("euclidean", 4)
 
 # load dataset
-for (batch in c(0)) {
-  store_path <- sprintf("%s/%s/fixwindow/batch_%s.rds", path, bfmethod, batch)
-  data <- hts(rbind(rep(1, m), diag(m)),
-               bts = dt$data[1:(96+batch), (n-m+1):n],
-               tts = dt$data[(96+batch+1):(96+batch+forecast_horizon), (n-m+1):n])
-  
-  data <- hts.basef(data, bfmethod, h=forecast_horizon, frequency=12)
-  
-  print(paste0(Sys.time(), "computing features ..."))
-  data <- features.compute(data, frequency = frequency)
+for (batch in 0:batch_length) {
+  store_path <- sprintf("%s/%s/batch_%s.rds", path, bfmethod, batch)
+  # data <- hts(rbind(rep(1, m), diag(m)),
+  #              bts = dt$data[1:(96+batch), (n-m+1):n],
+  #              tts = dt$data[(96+batch+1):(96+batch+forecast_horizon), (n-m+1):n])
+  # 
+  # data <- hts.basef(data, bfmethod, h=forecast_horizon, frequency=12)
+  # 
+  data <- readRDS(store_path)
+  # print(paste0(Sys.time(), "computing features ..."))
+  # data <- features.compute(data, frequency = frequency)
 
   print(paste0(Sys.time(), "computing distance matrix ..."))
   DISTANCEMAT <- list()
   for (i in seq_along(REPRESENTORS)) {
     representor <- REPRESENTORS[i]
     distance <- DISTANCES[i]
-    cluster_input <- get(paste0("representator.", representor))(data)
+    cluster_input <- get(paste0("representator.", representor))(data, dr = endsWith(representor, "-dr"))
     distance_method <- get(paste0("distance.", distance))
     distance_mat <- matrix(0, m, m)
     
     lst <- foreach(row=1:m, .packages = c("dtw")) %dopar% {
       output <- c()
       for (col in 1:row) {
+        
         dis <- distance_method(cluster_input[, row], cluster_input[, col])
         output <- c(output, dis)
       }
@@ -63,8 +66,8 @@ for (batch in c(0)) {
     data$distance <- DISTANCEMAT
   }
   
-  data <- add_nl(data, NULL, "", "", "")
-  data <- add_nl(data, dt$S[2:(n-m),], representor = "", distance = "", cluster = "natural")
+  # data <- add_nl(data, NULL, "", "", "")
+  # data <- add_nl(data, dt$S[2:(n-m),], representor = "", distance = "", cluster = "natural")
   saveRDS(data, store_path)
 }
 
