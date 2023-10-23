@@ -57,6 +57,7 @@ hts.basef <- function(x, f_str, h, frequency) {
 hts.nlf <- function(htst, f_str, h, frequency) {
   f <- get(paste0("f.", f_str))
   
+  idx2forecast <- Filter(function(x) { length(x$rf) == 0 }, htst$nl)
   
   smat2sstr <- function(S) {
     S_str <- c()
@@ -66,7 +67,7 @@ hts.nlf <- function(htst, f_str, h, frequency) {
     S_str
   }
   
-  S <- do.call(rbind, lapply(htst$nl, function(g) { g$S }))
+  S <- do.call(rbind, lapply(htst$nl[idx2forecast], function(g) { g$S }))
   print(sprintf("totally %s series are constructed", NROW(S)))
   S_str <- smat2sstr(as.matrix(S))
   fcasts <- list()
@@ -90,7 +91,7 @@ hts.nlf <- function(htst, f_str, h, frequency) {
   }
   names(bf) <- names(fcasts)
   
-  rfs <- foreach(nl=iterators::iter(htst$nl)) %do% {
+  rfs <- foreach(nl=iterators::iter(htst$nl[idx2forecast])) %do% {
     
     S_nl <- NULL
     if (!is.null(nl$S)) {
@@ -110,7 +111,7 @@ hts.nlf <- function(htst, f_str, h, frequency) {
     reconcile.all(S, basef, resid)
   }
   
-  for (l in seq_along(htst$nl)) {
+  for (l in idx2forecast) {
     htst$nl[[l]]$rf <- rfs[[l]]
   }
   htst
