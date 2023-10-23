@@ -55,34 +55,38 @@ cluster.kmedoids <- function(distance_mat, n_clusters) {
   # calculate silhouette and determine optimal number of clusters
   max.avgwidths <- 0
   max.n_cluster <- 1
+  max.pr <- NULL
   for (n_cluster in n_clusters) {
     if (n_cluster == 1) next
     pr <- pam(distance_mat, k=n_cluster, diss=TRUE)
     clus_silwidth <- summary(silhouette(pr))
-    if (min(clus_silwidth$clus.avg.widths) < 0.1) next
+    # if (min(clus_silwidth$clus.avg.widths) < 0.1) next
     if (clus_silwidth$avg.width > max.avgwidths) {
       max.avgwidths <- clus_silwidth$avg.width
       max.n_cluster <- n_cluster
+      max.pr <- pr
     }
   }
   if (max.n_cluster == 1) { return(NULL) }
   
-  output <- pam(distance_mat, k = max.n_cluster, diss=TRUE,
-                nstart = 10)
   grp2S <- function(grp) {
     grpvec <- grp$clustering
+    bad_groups <- which(summary(silhouette(grp))$clus.avg.width < 0.05)
     do.call(rbind, lapply(unique(grpvec), function(grp){
+      if (grp %in% bad_groups) {
+        return(NULL)
+      }
       S_row <- vector("numeric", NCOL(distance_mat))
       S_row[which(grpvec == grp)] <- 1
       S_row
     }))
   }
-  
-  list(S=grp2S(output), 
+
+  list(S=grp2S(max.pr), 
        info = list(n_cluster = max.n_cluster, 
-                   width = summary(silhouette(output))$clus.avg.widths,
-                   avgwidth = summary(silhouette(output))$avg.width,
-                   medoids = output$id.med)
+                   width = summary(silhouette(max.pr))$clus.avg.widths,
+                   avgwidth = summary(silhouette(max.pr))$avg.width,
+                   medoids = max.pr$id.med)
        )
 }
 
