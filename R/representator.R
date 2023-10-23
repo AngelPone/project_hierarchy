@@ -1,7 +1,14 @@
-representator.ts <- function(x) {
-  apply(x$bts, 2, function(x){
+representator.ts <- function(x, dr = FALSE) {
+  res <- apply(x$bts, 2, function(x){
     (x - mean(x)) / sd(x)
   })
+  if (dr) {
+    res <- prcomp(t(res), scale.=TRUE)
+    vari <- which(cumsum((res$sdev^2)/sum(res$sdev^2)) > 0.8)
+    vari <- min(vari, 10)
+    res <- t(res$x[,1:vari])
+  }
+  res
 }
 
 representator.accuracy <- function(x) {
@@ -22,13 +29,20 @@ representator.forecast <- function(x) {
   })
 }
 
-representator.error <- function(x){
+representator.error <- function(x, dr = FALSE){
   stopifnot(!is.null(x$basef))
   n <- NROW(x$S)
   m <- NCOL(x$S)
-  apply(x$resid[,(n-m+1):n], 2, function(x) {
+  res <- apply(x$resid[,(n-m+1):n], 2, function(x) {
     (x - mean(x)) / sd(x)
   })
+  if (dr) {
+    res <- prcomp(t(res), scale.=TRUE)
+    vari <- which(cumsum((res$sdev^2)/sum(res$sdev^2)) > 0.8)
+    vari <- min(vari, 10)
+    res <- t(res$x[,1:vari])
+  }
+  res
 }
 
 
@@ -59,14 +73,28 @@ features.compute <- function(data, frequency=frequency) {
 }
 
 
-representator.ts.features <- function(x) {
-  t(apply(x$features$ts, 1, function(g) {
+representator.ts.features <- function(x, dr=FALSE) {
+  res <- t(apply(x$features$ts, 1, function(g) {
     (g - mean(g)) / sd(g)
   }))
+  if (dr) {
+    res <- prcomp(t(res), scale.=TRUE)
+    vari <- which(cumsum((res$sdev^2)/sum(res$sdev^2)) > 0.8)
+    vari <- min(vari, 10)
+    res <- t(res$x[,1:vari])
+  }
+  res
 }
 
-representator.error.features <- function(x) {
-  t(apply(x$features$error, 1, function(g) {
+representator.error.features <- function(x, dr=FALSE) {
+  res <- t(apply(x$features$error, 1, function(g) {
     (g - mean(g)) / sd(g)
   }))
+  if (dr) {
+    res <- prcomp(t(res), scale.=TRUE)
+    vari <- which(cumsum((res$sdev^2)/sum(res$sdev^2)) > 0.8)
+    vari <- min(vari, 10)
+    res <- t(res$x[,1:vari])
+  }
+  res
 }
