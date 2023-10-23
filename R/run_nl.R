@@ -20,10 +20,8 @@ frequency <- 12
 batch_length <- time_length - 96 - forecast_horizon
 
 
-REPRESENTORS <- c(rep(c("ts", "error", "forecast"), each = 6),
-                  "ts.features", "error.features","ts.features", "error.features", "accuracy")
-DISTANCES <- c(rep(c("euclidean", "manhattan", "dtw", "negcor", "cor", "uncorrelation"), 3),
-               "euclidean", "euclidean", "manhattan", "manhattan", "euclidean")
+REPRESENTORS <- c("ts-dr", "error-dr", "ts.features-dr", "error.features-dr")
+DISTANCES <- rep("euclidean", 4)
 
 
 # load dataset
@@ -31,27 +29,29 @@ for (batch in 0:batch_length) {
   store_path <- sprintf("%s/%s/batch_%s.rds", path, bfmethod, batch)
   data <- readRDS(store_path)
   
-  # for (i in seq_along(REPRESENTORS)) {
-  #   print(sprintf("%s KMedoids %s * %s ", Sys.time(), REPRESENTORS[i], DISTANCES[i]))
-  #   nl <- build_level(hts = data, representor = REPRESENTORS[i],
-  #                     distance = DISTANCES[i], 
-  #                     cluster = cluster.kmedoids,
-  #                     n_clusters = 1:30)
-  #   data <- add_nl(data, nl$S, REPRESENTORS[i], DISTANCES[i], "Kmedoids",
-  #                  other = nl$info)
-  # }
+  for (i in seq_along(REPRESENTORS)) {
+    print(sprintf("%s KMedoids %s * %s ", Sys.time(), REPRESENTORS[i], DISTANCES[i]))
+    nl <- build_level(hts = data, representor = REPRESENTORS[i],
+                      distance = DISTANCES[i],
+                      cluster = cluster.kmedoids,
+                      n_clusters = 1:50)
+    data <- add_nl(data, nl$S, REPRESENTORS[i], DISTANCES[i], "Kmedoids-dr",
+                   other = nl$info)
+  }
   
   # print(paste0(Sys.time(), " hierarchical clustering ..."))
   
   for (representor in REPRESENTORS) {
     for (distance in DISTANCES) {
-      for (method in c("ward", "average")) {
         nl <- build_level(hts = data, representor=representor,
                           distance = distance,
                           cluster = cluster.hcluster,
-                          method = method)[[1]]
-        data <- add_nl(data, nl, representor, distance, paste0("hcluster-", method))
-      }
+                          method = "ward")[[1]]
+        data <- add_nl(data, nl, representor, distance, paste0("hcluster-dr"))
+        
+        for (i in 1:20) {
+          data <- add_nl(data, nl[,sample(NCOL(nl))], representor, distance, paste0("hcluster-dr-random"))
+        }
     }
   }
   # 
