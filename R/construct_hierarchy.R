@@ -117,66 +117,6 @@ hts.nlf <- function(htst, f_str, h, frequency) {
 }
 
 
-#' function to iterator over S, find the forecast store and return the forecast
-#' 
-fhts_helper <- function(S, all_ts, f_str, h, frequency) {
-  f <- get(paste0("f.", f_str))
-  stored_forecasts <- lapply(iterators::iter(S, by = "row"), function(row){
-    f.store.read(row, f_str)
-  })
-  idx_to_forecast <- which(sapply(stored_forecasts, is.null))
-  
-  if (exists("num.cores")) {
-    bf <- foreach::foreach(x = iterators::iter(all_ts[,idx_to_forecast,drop=FALSE], by = "column"), .packages = c("forecast")) %dopar% {
-      f(x, h=h, frequency=frequency)
-    }
-  } else {
-    bf <- apply(all_ts[,idx_to_forecast, drop=FALSE], 2, f, h=h, frequency=frequency)
-  }
-  for (i in seq_along(idx_to_forecast)) {
-    S_idx <- idx_to_forecast[i]
-    f.store.write(S[S_idx,], f_str, bf[[i]])
-    stored_forecasts[[S_idx]] <- bf[[i]]
-  }
-  stored_forecasts
-}
-
-
-
-
-#' function to forecast hts
-#' @param x hts
-#' @param f_str baseforecast method string
-forecast.hts <- function(x, f_str, h, frequency){
-  
-  if (length(x$nl) > 0) {
-    new_S <- do.call(rbind, lapply(x$nl, function(g){ g$S }))
-    all_nts <- x$bts %*% t(new_S)
-    bf <- fhts_helper(new_S, all_nts, f_str, h, frequency)
-  }
-  
-  for (level in seq_along(x$nl)) {
-    if (is.null(x$nl[[level]]$basef)) {
-      all_nts <-x$bts %*% t(x$nl[[level]]$S)
-      bf <- fhts_helper(x$nl[[level]]$S, all_nts, f_str, h, frequency)
-      x$nl[[level]]$basef <- unname(do.call(cbind, lapply(bf, function(x){unclass(x$basef)})))
-      
-      if (is.null(dim(x$nl[[level]]$basef))) {
-        x$nl[[level]]$basef <- matrix(x$nl[[level]]$basef, nrow = 1)
-      }
-      
-      x$nl[[level]]$resid <- unname(do.call(cbind, lapply(bf, function(x){unclass(x$resid)})))
-    }
-  }
-  x
-}
-
-#' add new level
-updateLevel.hts <- function(x, new_S, meta) {
-  append(x$nl, list(S = S, basef=NULL, rf=NULL, rf_nl=NULL, meta=meta))
-}
-
-
 is.hts <- function(x) {
   "hts" %in% class(x)
 }
