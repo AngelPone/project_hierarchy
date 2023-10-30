@@ -23,6 +23,7 @@ hts.eval <- function(df, metrics, tts, bts) {
   
   # random
   randoms <- unique(df$cluster[which(startsWith(df$cluster, "random"))])
+  randoms <- c(randoms, "hcluster-random")
   df_random <- list()
   df_random$S <- vector("list", 3*length(randoms))
   df_random$other <- vector("list", 3*length(randoms))
@@ -45,6 +46,7 @@ hts.eval <- function(df, metrics, tts, bts) {
     }
   }
   df <- df %>% filter(!startsWith(cluster, "random")) %>%
+    filter(cluster != "hcluster-random") %>%
     rbind(as_tibble(df_random))
   
   for (metric in metrics) {
@@ -99,7 +101,7 @@ for (batch in 0:batch_length) {
   data_tibble <- nl2tibble(data$nl)
   data_tibble <- hts.eval(data_tibble, metrics, data$tts, data$bts)
 
-  data_tibble <- data_tibble %>% select(-other, -rf) %>% mutate(batch = batch)
+  data_tibble <- data_tibble %>% select(-rf) %>% mutate(batch = batch)
   dtb <- rbind(dtb, data_tibble)
   dtb_base <- rbind(dtb_base, as_tibble(hts.evalbase(data, metrics)) %>%
                       mutate(batch = batch))

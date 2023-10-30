@@ -57,7 +57,7 @@ hts.basef <- function(x, f_str, h, frequency) {
 hts.nlf <- function(htst, f_str, h, frequency) {
   f <- get(paste0("f.", f_str))
   
-  idx2forecast <- Filter(function(x) { length(x$rf) == 0 }, htst$nl)
+  idx2forecast <- which(sapply(htst$nl, function(x) {length(x$rf) == 0}))
   
   smat2sstr <- function(S) {
     S_str <- c()
@@ -85,7 +85,6 @@ hts.nlf <- function(htst, f_str, h, frequency) {
   
   allts <- htst$bts %*% t(S_toforecast)
   
-  
   bf <- foreach::foreach(x = iterators::iter(allts, by = "column"), .packages = c("forecast")) %dopar% {
     f(x, h=h, frequency=frequency)
   }
@@ -111,8 +110,9 @@ hts.nlf <- function(htst, f_str, h, frequency) {
     reconcile.all(S, basef, resid)
   }
   
-  for (l in idx2forecast) {
-    htst$nl[[l]]$rf <- rfs[[l]]
+  for (l in seq_along(idx2forecast)) {
+    idxinnl <- idx2forecast[l]
+    htst$nl[[idxinnl]]$rf <- rfs[[l]]
   }
   htst
 }

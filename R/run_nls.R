@@ -34,11 +34,23 @@ avg_measure_fn <- function(dt, rf_method = "mint", metric = "rmse") {
     arrange(total)
 }
 
-rank_compare <- function(dt, methods_df = NULL, measure="rmse", rf_method = "mint") {
+rank_compare <- function(dt, methods_df = NULL, measure="rmse", rf_method = "mint", filter_random = FALSE) {
   if (is.null(methods_df)) {
+    if (filter_random) {
+      methods_random <- dt$dtb %>% select(representor, distance, cluster) %>% 
+        filter(cluster %in% c("random-15-50", "hcluster-random-50", "random-natural")) %>% 
+        unique()
+    } else {
+      methods_random <- dt$dtb %>% select(representor, distance, cluster) %>% 
+        filter(grepl(cluster, "random", fixed = TRUE)) %>% 
+        unique()
+    }
+    methods_dr <- dt$dtb %>% select(representor, distance, cluster) %>% filter(endsWith(cluster, "-dr")) %>% unique()
+    methods_natural <- dt$dtb %>% select(representor, distance, cluster) %>%
+      filter(cluster %in% c("base", "", "natural")) %>% unique()
     methods_df <- Kmedoids_clusterN(dt) %>% filter(`0` != length(dt$base$rmse) | is.na(`0`)) %>% 
       select(representor, distance) %>% mutate(cluster = "Kmedoids") %>%
-      rbind(dt$dtb %>% select(representor, distance, cluster) %>% filter(distance == "") %>% unique())
+      rbind(methods_dr, methods_random, methods_natural)
   }
   dtb <- dt$dtb %>% right_join(methods_df, by = c("representor", "distance", "cluster")) %>%
     select(representor, distance, cluster, all_of(measure), batch) %>%
@@ -47,6 +59,10 @@ rank_compare <- function(dt, methods_df = NULL, measure="rmse", rf_method = "min
       g <- arrange(g, "batch") %>% pull(measure)
       do.call(c, lapply(g, function(x) x[[rf_method]]))
     })
+  avg_n <- dt$dtb %>% right_join(methods_df, by = c("representor", "distance", "cluster")) %>%
+    rowwise() %>%
+    mutate(n = ifelse(is.null(S), 0, NROW(S))) %>%
+    group_by(representor, distance, cluster) %>% summarise(n = mean(n), .groups = "drop")
   metric_mat <- do.call(cbind, dtb$values)
   dt_base <- do.call(c, dt$base[[measure]])
   metric_mat <- cbind(metric_mat, dt_base)
@@ -56,82 +72,22 @@ rank_compare <- function(dt, methods_df = NULL, measure="rmse", rf_method = "min
     mutate(method_name = ifelse(method_name == "", "no-cluster", method_name))
 
   colnames(metric_mat) <- c(dtb$method_name, "base")
-  mcbtest <- tsutils::nemenyi(metric_mat, plot = "vline")
+  mcbtest <- tsutils::nemenyi(metric_mat, plot = "vmcb")
   lowest_rank <- min(mcbtest$means)
   mcbmeans <- mcbtest$means[c(dtb$method_name, "base")]
   dtb %>% select(representor, distance, cluster) %>% 
     add_row(representor = "", distance = "", cluster = "base") %>%
     mutate(avgrank = mcbmeans) %>%
     mutate(sigworse = (mcbmeans > (lowest_rank + mcbtest$cd))) %>%
+    right_join(avg_n, by = c("representor", "cluster", "distance")) %>%
     arrange(avgrank)
 }
 
-# Compare rank
-# rank_compare <- function(dt, measure, rf_method, col, col1, col2) {
-#   col1_choice <- dt %>% filter(representor != "") %>% 
-#     pull({{col1}}) %>% unique()
-#   col2_choice <- dt %>% filter(representor != "") %>% 
-#     pull({{col2}}) %>% unique()
-#   
-#   output <- vector("list", 4)
-#   names(output) <- c("best", "sigbest", "worst", "sigworse")
-#   
-#   ch1 <- rep(col1_choice, length(col2_choice))
-#   ch2 <- rep(col2_choice, each = length(col1_choice))
-#   
-#   
-#   output <- foreach(choice1 = ch1, choice2 = ch2, .packages = "dplyr") %do% {
-#     tmpdt <- dt %>% filter({{col1}} == choice1, {{col2}} == choice2) %>%
-#       select(-S) %>%
-#       select(batch, representor, cluster, distance, all_of(measure)) %>%
-#       tidyr::nest(data = c("batch", measure))
-#     
-#     # tmpdt <- rbind(tmpdt1, tmpdt2)
-#     tmpnames <- c(tmpdt %>% pull({{col}}))
-#     
-#     dat_mat <- do.call(cbind, lapply(tmpdt$data, function(g) {
-#       lapply(g[[measure]], function(e) {
-#         if (rf_method %in% names(e)) { return(e[[rf_method]]) }
-#         e
-#       }) %>% do.call(c, .)
-#     }))
-#     colnames(dat_mat) <- tmpnames
-#     mcb_res <- tsutils::nemenyi(dat_mat, plot = "none")
-#     
-#     is.bestsignificant <- function(x){
-#       x$mean[1] + x$cd/2 < x$mean[2] - x$cd/2
-#     }
-#     which.best <- function(x){
-#       names(x$means)[1]
-#     }
-#     
-#     which.worst <- function(x){
-#       names(x$means)[length(x$means)]
-#     }
-#     
-#     is.worstsignificant <- function(x){
-#       x$mean[1] + x$cd/2 < x$mean[x$k] - x$cd/2
-#     }
-#     
-#     list(best=which.best(mcb_res), sigbest=is.bestsignificant(mcb_res),
-#       worse=which.worst(mcb_res), sigworse=is.worstsignificant(mcb_res))
-#   }
-#   
-#   list2tibble <- function(x, idx) {
-#     sapply(x, function(x) {x[[idx]]} )
-#   }
-#   output <- list(best = list2tibble(output, 1), sigbest = list2tibble(output, 2),
-#                  worst = list2tibble(output, 3), sigworse = list2tibble(output, 4))
-#   
-#   list(best = as_tibble(output) %>% group_by(best) %>% summarise(n(), sigbest = sum(sigbest)),
-#        worst = as_tibble(output) %>% group_by(worst) %>% summarise(n(), sigworst = sum(sigworse)))
-# }
 
-
-Kmedoids_clusterN <- function(dt) {
-  dt$dtb %>% filter(cluster == "Kmedoids") %>% 
+Kmedoids_clusterN <- function(dt, cluster = "Kmedoids", mode="S") {
+  dt$dtb %>% filter(cluster == .env$cluster) %>% 
     rowwise() %>%
-    mutate(n_cluster = ifelse(is.null(S), 0, NROW(S))) %>%
+    mutate(n_cluster = ifelse(is.null(S), 0, ifelse(mode == "S", NROW(S)))) %>%
     select(representor, distance, batch, n_cluster) %>% ungroup() %>%
     group_by(representor, distance, n_cluster) %>%
     summarise(count=n(), .groups = "drop") %>%
@@ -139,14 +95,35 @@ Kmedoids_clusterN <- function(dt) {
     pivot_wider(id_cols = c("representor", "distance"), names_from = "n_cluster", values_from = "count")
 }
 
+Kmedoids_gap <- function(dt) {
+  dt$dtb %>% filter(cluster == "Kmedoids-dr") %>%
+    rowwise() %>%
+    mutate(n_cluster = ifelse(is.null(S), 0, NROW(S))) %>%
+    mutate(n_Kmedoids = other$n_cluster) %>%
+    mutate(n_gap = other$gap) %>%
+    ungroup() %>%
+    select(-c(S, other, rmsse, mase, rmse, mae))
+}
 
-visualizeDistance <- function(dt, representor, distance) {
+inspect_silhouette <- function(dt_orig, representor) {
+  source("R/representator.R")
+  distance_mat <- dt_orig$distance[[representor]][["euclidean"]]
+  nl <- nl2tibble(dt_orig$nl)
+  idx <- which(nl$representor == representor & nl$cluster == "Kmedoids-dr")
+  
+  print(summary(silhouette(pam(distance_mat, k=nl$other[[idx]]$n_cluster,diss=TRUE))))
+  if (nl$other[[idx]]$gap > 1) {
+    print(summary(silhouette(pam(distance_mat, k=nl$other[[idx]]$gap,diss=TRUE))))
+  }
+}
+
+visualizeDistance <- function(dt, representor, distance, cluster = "Kmedoids") {
   distance_mat <- dt$distance[[representor]][[distance]]
   d2scaled <- cmdscale(distance_mat, 2, eig = TRUE)
   d2scaled <- tibble(x=d2scaled$points[,1], y=d2scaled$points[,2])
   tmpdt <- nl2tibble(dt$nl) %>% filter(representor == .env$representor, 
                                    distance == .env$distance,
-                                   cluster == "Kmedoids")
+                                   cluster == .env$cluster)
   S <- tmpdt$S[[1]]
   
   p <- ggplot(d2scaled, mapping = aes(x=x,y=y))
@@ -159,7 +136,10 @@ visualizeDistance <- function(dt, representor, distance) {
   } else {
     p <- p + geom_point()
   }
-  p + ggtitle(sprintf("%s %s", representor, distance))
+  gap <- tmpdt$other[[1]]$gap
+  p + ggtitle(sprintf("%s %s %s %s", representor, distance, 
+                      paste0("nKmedoids = ", tmpdt$other[[1]]$n_cluster),
+                      ifelse(is.null(gap), "", paste0("gap = ", gap))))
 }
   
 
@@ -169,6 +149,13 @@ visualizeGroup <- function(dt, representor, distance, type = c("bts", "resid"), 
   tmpdt <- nl2tibble(dt$nl) %>% filter(cluster == .env$cluster, representor == .env$representor,
                                        distance == .env$distance)
   cluster_S <- tmpdt$S[[1]]
+  
+  distance <- dt$distance[[representor]][[distance]]
+  n_cluster <- tmpdt$other[[1]]$n_cluster
+  pam_x <- pam(distance, k=n_cluster, diss = TRUE)
+  sil <- summary(silhouette(pam_x))$clus.avg.width
+  sil <- sil[which(sil > 0.05)]
+  
   type <- match.arg(type)
   for (i in 1:NROW(cluster_S)) {
     idx <- which(cluster_S[i,] == 1)[1:min(8, sum(cluster_S[i,]))]
@@ -180,6 +167,6 @@ visualizeGroup <- function(dt, representor, distance, type = c("bts", "resid"), 
     }
     series <- ts(series, frequency = 12)
     
-    plot(series, main = sprintf("%s Group = %s", type, i))
+    plot(series, main = sprintf("%s Group = %s, group silhouette = %s", type, i, sil[i]))
   }
 }

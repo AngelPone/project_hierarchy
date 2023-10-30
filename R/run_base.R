@@ -2,7 +2,7 @@ args <- commandArgs(trailingOnly = TRUE)
 path <- args[[1]]
 bfmethod <- args[[2]]
 
-num.cores <- 8
+num.cores <- 6
 
 cl <- parallel::makeCluster(num.cores)
 doParallel::registerDoParallel(cl)
@@ -29,29 +29,29 @@ DISTANCES <- rep("euclidean", 4)
 # load dataset
 for (batch in 0:batch_length) {
   store_path <- sprintf("%s/%s/batch_%s.rds", path, bfmethod, batch)
-  # data <- hts(rbind(rep(1, m), diag(m)),
-  #              bts = dt$data[1:(96+batch), (n-m+1):n],
-  #              tts = dt$data[(96+batch+1):(96+batch+forecast_horizon), (n-m+1):n])
-  # 
-  # data <- hts.basef(data, bfmethod, h=forecast_horizon, frequency=12)
-  # 
-  data <- readRDS(store_path)
-  # print(paste0(Sys.time(), "computing features ..."))
-  # data <- features.compute(data, frequency = frequency)
+  data <- hts(rbind(rep(1, m), diag(m)),
+               bts = dt$data[1:(96+batch), (n-m+1):n],
+               tts = dt$data[(96+batch+1):(96+batch+forecast_horizon), (n-m+1):n])
+
+  data <- hts.basef(data, bfmethod, h=forecast_horizon, frequency=12)
+
+  # data <- readRDS(store_path)
+  print(paste0(Sys.time(), "computing features ..."))
+  data <- features.compute(data, frequency = frequency)
 
   print(paste0(Sys.time(), "computing distance matrix ..."))
   DISTANCEMAT <- list()
+  # DISTANCEMAT <- data$distance
   for (i in seq_along(REPRESENTORS)) {
     representor <- REPRESENTORS[i]
     distance <- DISTANCES[i]
-    cluster_input <- get(paste0("representator.", representor))(data, dr = endsWith(representor, "-dr"))
+    cluster_input <- get(paste0("representator.", strsplit(representor, "-")[[1]][1]))(data, dr = endsWith(representor, "-dr"))
     distance_method <- get(paste0("distance.", distance))
     distance_mat <- matrix(0, m, m)
     
     lst <- foreach(row=1:m, .packages = c("dtw")) %dopar% {
       output <- c()
       for (col in 1:row) {
-        
         dis <- distance_method(cluster_input[, row], cluster_input[, col])
         output <- c(output, dis)
       }
@@ -66,10 +66,12 @@ for (batch in 0:batch_length) {
     data$distance <- DISTANCEMAT
   }
   
-  # data <- add_nl(data, NULL, "", "", "")
-  # data <- add_nl(data, dt$S[2:(n-m),], representor = "", distance = "", cluster = "natural")
+  data <- add_nl(data, NULL, "", "", "")
+  data <- add_nl(data, dt$S[2:(n-m),], representor = "", distance = "", cluster = "natural")
   saveRDS(data, store_path)
 }
+
+
 
 
 

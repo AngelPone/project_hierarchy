@@ -41,18 +41,15 @@ for (batch in 0:batch_length) {
   
   # print(paste0(Sys.time(), " hierarchical clustering ..."))
   
-  for (representor in REPRESENTORS) {
-    for (distance in DISTANCES) {
-        nl <- build_level(hts = data, representor=representor,
-                          distance = distance,
-                          cluster = cluster.hcluster,
-                          method = "ward")[[1]]
-        data <- add_nl(data, nl, representor, distance, paste0("hcluster-dr"))
-        
-        for (i in 1:20) {
-          data <- add_nl(data, nl[,sample(NCOL(nl))], representor, distance, paste0("hcluster-dr-random"))
-        }
-    }
+  for (i in seq_along(REPRESENTORS)) {
+    nl <- build_level(hts = data, representor=REPRESENTORS[i],
+                      distance = DISTANCES[i],
+                      cluster = cluster.hcluster,
+                      method = "ward")[[1]]
+    data <- add_nl(data, nl, REPRESENTORS[i], DISTANCES[i], "hcluster-dr")
+  }
+  for (i in 1:50) {
+    data <- add_nl(data, nl[,sample(NCOL(nl))], "", "", "hcluster-random")
   }
   # 
   # print(paste0(Sys.time(), " nested Kmedoids 2 ..."))
