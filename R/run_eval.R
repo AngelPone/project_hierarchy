@@ -25,12 +25,12 @@ hts.eval <- function(df, metrics, tts, bts) {
   randoms <- unique(df$cluster[which(startsWith(df$cluster, "random"))])
   randoms <- c(randoms, "hcluster-random")
   df_random <- list()
-  df_random$S <- vector("list", 3*length(randoms))
-  df_random$other <- vector("list", 3*length(randoms))
+  df_random$S <- vector("list", 3*length(randoms) + 1)
+  df_random$other <- vector("list", 3*length(randoms) + 1)
   df_random$cluster <- c()
   df_random$rf <- list()
-  df_random$representor <- rep("", 3*length(randoms))
-  df_random$distance <- rep("", 3*length(randoms))
+  df_random$representor <- rep("", 3*length(randoms) + 1)
+  df_random$distance <- rep("", 3*length(randoms) + 1)
   for (rd in randoms) {
     tmpdt <- df %>% filter(cluster == rd)
     for (random_n in c(10, 20, 50)) {
@@ -45,6 +45,20 @@ hts.eval <- function(df, metrics, tts, bts) {
       df_random$rf <- append(df_random$rf, list(avg_rf))
     }
   }
+  # cluster average
+  df_random$cluster <- c(df_random$cluster, "cluster-average")
+  avg_rf <- list()
+  tmpdt <- df %>% filter(!startsWith(cluster, "random")) %>%
+    filter(cluster != "hcluster-random") %>%
+    filter(cluster != "natural", cluster != "", cluster != "base")
+  for (rf_method in c("ols", "wlss", "wlsv", "mint")) {
+    avg_rf_method <- 
+      do.call(abind::abind, list(lapply(tmpdt$rf, function(x) x[[rf_method]]), along=0))
+    avg_rf[[rf_method]] <- 
+      apply(avg_rf_method, c(2, 3), mean)
+  }
+  df_random$rf <- append(df_random$rf, list(avg_rf))
+  
   df <- df %>% filter(!startsWith(cluster, "random")) %>%
     filter(cluster != "hcluster-random") %>%
     rbind(as_tibble(df_random))
