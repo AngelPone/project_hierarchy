@@ -47,7 +47,7 @@ rank_compare <- function(dt, methods_df = NULL, measure="rmse", rf_method = "min
     }
     methods_dr <- dt$dtb %>% select(representor, distance, cluster) %>% filter(endsWith(cluster, "-dr")) %>% unique()
     methods_natural <- dt$dtb %>% select(representor, distance, cluster) %>%
-      filter(cluster %in% c("base", "", "natural")) %>% unique()
+      filter(cluster %in% c("base", "", "natural", "cluster-average")) %>% unique()
     methods_df <- Kmedoids_clusterN(dt) %>% filter(`0` != length(dt$base$rmse) | is.na(`0`)) %>% 
       select(representor, distance) %>% mutate(cluster = "Kmedoids") %>%
       rbind(methods_dr, methods_random, methods_natural)

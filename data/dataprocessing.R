@@ -260,12 +260,12 @@ colnames(S)[NCOL(S)] <- "Combine-GR113-097"
 rownames(S)[NROW(S)] <- "Combine-GR113-097"
 
 
-write.csv(output, "data/mortality.csv", row.names = FALSE)
-write.csv(S, "data/S.csv")
-
-
-
-
+S <- rbind(S[!(rownames(S) %in% colnames(S)),],
+           S[colnames(S),])
+S <- rbind(rep(1, 98), S)
+rownames(S)[1] <- "Total"
+output <- as.matrix(output) %*% (t(S))
+saveRDS(list(S=S, data=output), "mortality/data.rds")
 
 
 

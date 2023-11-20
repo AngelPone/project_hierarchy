@@ -6,21 +6,21 @@ source("R/reconciliation.R")
 
 set.seed(43)
 
-cl <- parallel::makeCluster(4)
+cl <- parallel::makeCluster(3)
 doParallel::registerDoParallel(cl)
 
 simulate.season <- function(freq = 12, length = 12, nseries = 50, oppsite.season = TRUE, allow.trend = TRUE, opposite.trend = FALSE) {
   seasons <- do.call(rbind,
-          lapply(1:nseries, function(x) {
-            a <- c(runif(freq / 2, 0, 1), runif(freq / 2, 2, 3))
-            od <- rep(1:(freq/2), each = 2)
-            if (oppsite.season) {
-              od[seq(2, freq, 2)] <- od[seq(2, freq, 2)] + freq/2
-            } else {
-              od[seq(1, freq, 2)] <- od[seq(1, freq, 2)] + freq/2
-            }
-            rep(a[od], length * length / freq)
-          }))
+                     lapply(1:nseries, function(x) {
+                       a <- c(runif(freq / 2, 0, 1), runif(freq / 2, 2, 3))
+                       od <- rep(1:(freq/2), each = 2)
+                       if (oppsite.season) {
+                         od[seq(2, freq, 2)] <- od[seq(2, freq, 2)] + freq/2
+                       } else {
+                         od[seq(1, freq, 2)] <- od[seq(1, freq, 2)] + freq/2
+                       }
+                       rep(a[od], length * length / freq)
+                     }))
   
   trend <- 0
   if (allow.trend) {
@@ -38,7 +38,7 @@ simulate.season <- function(freq = 12, length = 12, nseries = 50, oppsite.season
 
 
 simulate.forecast <- function(series) {
-
+  
   bts <- t(series[,1:(NCOL(series) - 12)])
   tts <- t(series[,(NCOL(series) - 11):NCOL(series)])
   m <- NROW(series)
@@ -60,15 +60,20 @@ simulate.forecast <- function(series) {
   nl[[53]] <- grp2S(rep(c(1,2, 1, 2, 1, 2), each=20))
   nl[[54]] <- grp2S(rep(c(1,2, 1), each=40))
   
-  all_S <- rbind(rep(1,m), do.call(rbind, nl), diag(m))
+  all_S <- rbind(rep(1,m), do.call(rbind, nl))
   allts <- bts %*% t(all_S)
   bf <- foreach(x=iterators::iter(allts, by="column"), .packages = "forecast") %dopar% {
     mdl <- ets(ts(x, frequency = 12))
     fcasts <- forecast(mdl, h=12)
     list(fcasts = as.numeric(fcasts$mean), resid = as.numeric(residuals(mdl, type = "response")))
   }
+  bf_bottom <- lapply(1:m, function(x){
+    fcasts <- mean(bts[,x])
+    list(fcasts = rep(fcasts, 12), resid = fcasts - bts[,x])
+  })
+  bf <- c(bf, bf_bottom)
   
-  bottom_idx <- (NROW(all_S)-(m-1)):NROW(all_S)
+  bottom_idx <- (NROW(all_S)+1):(NROW(all_S)+m)
   
   recfs <- list()
   cumNROW <- 1
@@ -88,11 +93,11 @@ simulate.forecast <- function(series) {
   recf_output[[2]] <- recfs[[1]] # correct cluster
   # random 10, 20, 50
   recf_output[[3]] <- apply(do.call(abind::abind, list(recfs[2:51], along=0))[1:10,,],
-                     c(2, 3), mean)
+                            c(2, 3), mean)
   recf_output[[4]] <- apply(do.call(abind::abind, list(recfs[2:51], along=0))[1:20,,],
-                     c(2, 3), mean)
+                            c(2, 3), mean)
   recf_output[[5]] <- apply(do.call(abind::abind, list(recfs[2:51], along=0))[1:50,,],
-                     c(2, 3), mean)
+                            c(2, 3), mean)
   recf_output[[6]] <- recfs[[52]]
   recf_output[[7]] <- recfs[[53]]
   recf_output[[8]] <- recfs[[54]]
@@ -132,7 +137,7 @@ for (i in 1:500) {
   generated_series[[i]] <- simulated_series
 }
 
-saveRDS(list(acc = output, series = generated_series), "simulation/simulation.rds")
+saveRDS(list(acc = output, series = generated_series), "simulation/simulation2.rds")
 
 
 

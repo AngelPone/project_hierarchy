@@ -24,13 +24,16 @@ REPRESENTORS <- c("ts-dr", "error-dr", "ts.features-dr", "error.features-dr")
 DISTANCES <- rep("euclidean", 4)
 
 
+REPRESENTORS2 <- c("ts", "error")
+DISTANCES2 <- rep("dtw", 2)
+
 # load dataset
 for (batch in 0:batch_length) {
   store_path <- sprintf("%s/%s/batch_%s.rds", path, bfmethod, batch)
   data <- readRDS(store_path)
   
   for (i in seq_along(REPRESENTORS)) {
-    print(sprintf("%s KMedoids %s * %s ", Sys.time(), REPRESENTORS[i], DISTANCES[i]))
+    print(sprintf("%s KMedoids dr %s * %s ", Sys.time(), REPRESENTORS[i], DISTANCES[i]))
     nl <- build_level(hts = data, representor = REPRESENTORS[i],
                       distance = DISTANCES[i],
                       cluster = cluster.kmedoids,
@@ -39,8 +42,18 @@ for (batch in 0:batch_length) {
                    other = nl$info)
   }
   
-  # print(paste0(Sys.time(), " hierarchical clustering ..."))
+  for (i in seq_along(REPRESENTORS2)) {
+    print(sprintf("%s KMedoids %s * %s ", Sys.time(), REPRESENTORS2[i], DISTANCES2[i]))
+    nl <- build_level(hts = data, representor = REPRESENTORS2[i],
+                      distance = DISTANCES2[i],
+                      cluster = cluster.kmedoids,
+                      n_clusters = 1:50)
+    data <- add_nl(data, nl$S, REPRESENTORS2[i], DISTANCES2[i], "Kmedoids",
+                   other = nl$info)
+  }
   
+  
+  # hierarchical clustering dimension reduction
   for (i in seq_along(REPRESENTORS)) {
     nl <- build_level(hts = data, representor=REPRESENTORS[i],
                       distance = DISTANCES[i],
@@ -48,42 +61,21 @@ for (batch in 0:batch_length) {
                       method = "ward")[[1]]
     data <- add_nl(data, nl, REPRESENTORS[i], DISTANCES[i], "hcluster-dr")
   }
+
+  # hierarchical clustering dtw
   for (i in 1:50) {
     data <- add_nl(data, nl[,sample(NCOL(nl))], "", "", "hcluster-random")
   }
-  # 
-  # print(paste0(Sys.time(), " nested Kmedoids 2 ..."))
-  # REPRESENTORS_comb <- rep(REPRESENTORS, length(DISTANCES))
-  # DISTANCES_comb <- rep(DISTANCES, each=length(REPRESENTORS))
-  # 
-  # nlevel <- which(m / 2**c(3:6) < 10 & m / 2**c(3:6) > 5) + 2
-  # nl <- foreach(representor = REPRESENTORS_comb, distance = DISTANCES_comb,
-  #               .packages = "cluster") %dopar% {
-  #                 build_level(hts = data, representor=representor, 
-  #                             distance = distance, 
-  #                             cluster = cluster.nestedkmedoids,
-  #                             n_clusters = rep(2, nlevel))
-  #               }
-  # for (l in seq_along(nl)) {
-  #   data <- add_nl(data, nl[[l]][[1]], REPRESENTORS_comb[l], DISTANCES_comb[l], 
-  #                  paste0("nestedkmedoids-", do.call(paste0, as.list(rep(2, nlevel)))))
-  # }
-  # 
-  # print(paste0(Sys.time(), " nested Kmedoids 3 ..."))
-  # 
-  # nlevel <- which(m / 3**c(2:5) < 4 & m / 3**c(2:5) > 3) + 1
-  # nl <- foreach(representor = REPRESENTORS_comb, distance = DISTANCES_comb,
-  #              .packages = "cluster") %dopar% {
-  #           build_level(hts = data, representor=representor, 
-  #                       distance = distance, 
-  #                       cluster = cluster.nestedkmedoids,
-  #                       n_clusters = rep(3, nlevel))
-  #              }
-  # for (l in seq_along(nl)) {
-  #   data <- add_nl(data, nl[[l]][[1]], REPRESENTORS_comb[l], DISTANCES_comb[l], 
-  #                  paste0("nestedkmedoids-", do.call(paste0, as.list(rep(3, nlevel)))))
-  # }
   
+  for (i in seq_along(REPRESENTORS2)) {
+    print(sprintf("%s hcluster %s * %s ", Sys.time(), REPRESENTORS2[i], DISTANCES2[i]))
+    nl <- build_level(hts = data, representor = REPRESENTORS2[i],
+                      distance = DISTANCES2[i],
+                      cluster = cluster.hcluster,
+                      method = "ward")[[1]]
+    data <- add_nl(data, nl, REPRESENTORS2[i], DISTANCES2[i], "hcluster")
+  }
+
   saveRDS(data, store_path)
 }
 

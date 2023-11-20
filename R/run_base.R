@@ -23,8 +23,8 @@ batch_length <- time_length - 96 - forecast_horizon
 #                   "ts.features", "error.features","ts.features", "error.features", "accuracy")
 # DISTANCES <- c(rep(c("euclidean", "manhattan", "dtw", "negcor", "cor", "uncorrelation"), 3),
 #                "euclidean", "euclidean", "manhattan", "manhattan", "euclidean")
-REPRESENTORS <- c("ts-dr", "error-dr", "ts.features-dr", "error.features-dr")
-DISTANCES <- rep("euclidean", 4)
+REPRESENTORS <- c("ts-dr", "error-dr", "ts.features-dr", "error.features-dr", "ts", "error")
+DISTANCES <- c(rep("euclidean", 4), "dtw", "dtw")
 
 # load dataset
 for (batch in 0:batch_length) {

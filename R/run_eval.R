@@ -48,9 +48,8 @@ hts.eval <- function(df, metrics, tts, bts) {
   # cluster average
   df_random$cluster <- c(df_random$cluster, "cluster-average")
   avg_rf <- list()
-  tmpdt <- df %>% filter(!startsWith(cluster, "random")) %>%
-    filter(cluster != "hcluster-random") %>%
-    filter(cluster != "natural", cluster != "", cluster != "base")
+  tmpdt <- df %>% filter(cluster %in% c("Kmedoids-dr", "hcluster-dr")) %>%
+    rbind(df %>% filter(distance == "dtw", representor %in% c("ts", "error")))
   for (rf_method in c("ols", "wlss", "wlsv", "mint")) {
     avg_rf_method <- 
       do.call(abind::abind, list(lapply(tmpdt$rf, function(x) x[[rf_method]]), along=0))
