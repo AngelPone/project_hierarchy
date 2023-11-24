@@ -51,16 +51,53 @@
 \section{Methodology}
 \label{sec:method}
 
+\subsection{Framework}
+
+1. construct hierarchies based on historic observations
+2. forecast and reconciliation
+3. evaluation
+
 \subsection{Constructing hierarchies by clustering}
 
-\subsubsection{Time series representations}
+\cite{aghabozorgiTimeseriesClusteringDecade2015a} summarised the four components of time series clustering, including time series representations, distance measures, clustering algorithms and evaluation. In our framework, the first three components are involved in the constructing hierarchies procedure. The last component includes evaluation of reconciled forecasts of the original hierarchy.
 
-\subsubsection{Distance measures}
+\subsubsection*{Time series representations}
 
-\subsubsection{Clustering algorithms}
+Time-series representations represent raw time series in another space through techniques like feature extraction or dimensionality reduction. By utilising diverse time series representations, we are able to obtain distinct clusters which offer varied perspectives on the same dataset. 
+Despite the absence of the theoretical evidence regarding how groups in hierarchical time series affect forecast reconciliation performance, we seek to explore multiple time series representations and discern potential correlations between hierarchical structure and the efficacy of forecast reconciliation.
+
+Considering the impracticality of exploring every conceivable time series representation, we focus on four key ones: raw time series, in-sample error, features of time series, and features of in-sample error.
+The inclusion of raw time series is motivated by its simplicity and broad applicability.
+A crucial element contributing to the success of the minimum trace method proposed by \cite{wickramasuriyaOptimalForecastReconciliation2019} lies in estimating the covariance matrix of base forecast errors based on in-sample fit error. Hence, we consider in-sample error as a representation to examine how the structure within the error series influences reconciliation performance. Notably, to the best of our knowledge, we are the first to utilise in-sample error as a time series representation in the context of forecast reconciliation literature.
+The time series and in-sample error representations are standardised on a per-series basis to eliminate the impact of scale variations.
+Features, widely employed in capturing time series characteristics across literature, play a pivotal role in various time series applications, including clustering (\citealp{tianoFeatTSFeaturebasedTime2021}) and forecasting (\citealp{wangUncertaintyEstimationFeaturebased2022, liFeaturebasedIntermittentDemand2023}). In our exploration, we incorporate features of both time series and in-sample fit error as representations. These representations allow us to glean insights into the diverse aspects of hierarchical time series data and enhance our understanding of how different structures contribute to the forecast reconciliation performance.
+
+
+Given the limited number of time series in comparison to the variable dimensions (i.e., the length of time series and the number of time series features) within the hierarchical time series in our applications, it becomes imperative to perform dimension reduction on the aforementioned representations. Failure to undertake dimension reduction may lead to undesirable clustering outcomes due to the challenges posed by the curse of dimensionality. 
+We conduct principal component analysis and extract the first few principal components that explain at least $80$\% variance within the data.
+
+\subsubsection*{Distance measures}
+
+Distance measures assess the similarity between two series.
+
+euclidean distance
+
+dynamic time warping
+
+\subsubsection*{Clustering algorithms}
 \label{sec:clustering}
 
+k-Medoids
+
+hierarchical clustering
+
 \subsection{Constructing hierarchies randomly}
+
+pure random
+
+random based on specific structure
+
+\subsection{Forecast combination}
 
 \section{Simulation}
 \label{sec:simulation}
@@ -158,7 +195,7 @@ The second dataset focuses on causes of death in the U.S., using the ICD 10 codi
 
 We focus on the performance of total-level series and bottom-level series, disregarding the multiple middle levels in the original hierarchies known as "natural hierarchies". The natural hierarchy is considered one way to construct middle-level series, similar to hierarchies created through clustering. However, we demonstrate that for the purpose of forecast performance, the natural hierarchy may not be the most effective hierarchical structure.
 
-To construct middle levels using clustering, we combine four time series representations with two distance measures and two clustering algorithms. This results in twelve different construction approaches listed in Table~\ref{tab:emp_method}. In our experiments, dimension reduction of time series representations is crucial due to a small number of time series compared to variable dimensions (i.e., length of time series and number of time series features). Without dimension reduction, undesired clustering outcomes can occur due to the curse of dimensionality when using Euclidean distance. We employ principal component analysis on the time series representations and extract the first $k$ principal components that explain at least 80\% variance in the data. These transformed representations are then used as inputs for the clustering algorithms.
+To construct middle levels using clustering, we combine four time series representations with two distance measures and two clustering algorithms. This results in twelve different construction approaches listed in Table~\ref{tab:emp_method}.
 
 
 \begin{table}
