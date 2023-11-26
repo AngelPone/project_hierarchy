@@ -73,21 +73,26 @@ The time series and in-sample error representations are standardised on a per-se
 Features, widely employed in capturing time series characteristics across literature, play a pivotal role in various time series applications, including clustering (\citealp{tianoFeatTSFeaturebasedTime2021}) and forecasting (\citealp{wangUncertaintyEstimationFeaturebased2022, liFeaturebasedIntermittentDemand2023}). In our exploration, we incorporate features of both time series and in-sample fit error as representations. These representations allow us to glean insights into the diverse aspects of hierarchical time series data and enhance our understanding of how different structures contribute to the forecast reconciliation performance.
 
 
-Given the limited number of time series in comparison to the variable dimensions (i.e., the length of time series and the number of time series features) within the hierarchical time series in our applications, it becomes imperative to perform dimension reduction on the aforementioned representations. Failure to undertake dimension reduction may lead to undesirable clustering outcomes due to the challenges posed by the curse of dimensionality. 
-We conduct principal component analysis and extract the first few principal components that explain at least $80$\% variance within the data.
+ 
+
 
 \subsubsection*{Distance measures}
 
-Distance measures assess the similarity between two series.
+Distance measures serve as crucial tools for assessing the similarity between two series, forming the foundation for clustering algorithms to detect clusters within datasets. In the realm of time series clustering literature, we consider two widely applied distance measures: Euclidean distance and dynamic time warping (DTW) (\citealp{warrenliaoClusteringTimeSeries2005}). 
 
-euclidean distance
+Given the limited number of time series in comparison to the variable dimensions (i.e., the length of time series and the number of time series features) within hierarchical time series in our applications, dimension reduction on the aforementioned representations becomes imperative when employing Euclidean distance. Failure to undertake dimension reduction may result in undesirable clustering outcomes due to the challenges posed by the curse of dimensionality. To address this, we perform principal component analysis, extracting the first few principal components that collectively explain at least 80\% of the variance within the data.
 
-dynamic time warping
+In contrast, DTW (\citealp{sakoeDynamicProgrammingAlgorithm1978}), demonstrates reduced sensitivity to the curse of dimensionality. Unlike the one-to-one point comparison inherent in Euclidean distance, DTW accommodates time series of varying lengths through many-to-one comparisons. This adaptive approach allows for the recognition of time series with similar shapes, even in the presence of signal transformations such as shifting and/or scaling.
+
 
 \subsubsection*{Clustering algorithms}
 \label{sec:clustering}
 
-k-Medoids
+Regarding clustering algorithms, we consider two common approaches, k-Medoids and agglomerative hierarchical clustering. K-Medoids algorithm is one of the classical partitioning clustering algorithms. The idea behind partitioning clustering is the minimisation of the total distance between all samples in a cluster from their cluster centres.  We consider k-Medoids instead of the well known k-Means because k-Means use mean vector of samples within a cluster as cluster centre, which is not trivial when using DTW distance measure. In contrast, k-Medoids select one of the samples in the cluster as cluster centre. We use the k-Meodoids variants partitioning around medoids (PAM, \citealp{PartitioningMedoidsProgram1990}). The most important parameter for k-Medoids algorithm is the number of cluster. We follow the suggestion of \cite{PartitioningMedoidsProgram1990} to choose the optimal number of cluster by average silhouette width (ASW), which is a popular cluster validation index to estimate the number of clusters. Given a clustering $\mathcal{C}$, the silhouette width for the $i$th sample is calculated as 
+\[
+  SW(i) = \frac{b(i)-a(i)}{\max\{a(i), b(i)\}},  
+\]
+where $a(i)$ is the average distance of $i$the sample to samples in the cluster to which it is assigned, and $b(i)$ is the average distance of $i$th sample to the samples in the nearest cluster it is not assigned. A large value of silhouette means that the corresponding sample is much closer to the samples to the samples in its own cluster than to the neighbouring one. Silhouette width is zero for the sample which is the only sample in its cluster. ASW is calculated as the average of silhouette widths of all samples. By iterating over all possible number of clusters, we choose the clustering result $\mathcal{C}$ that maximises the ASW as the optimal result. One drawback of this approach is that ASW does not exist when there is only one cluster, meaning that it can not determine whether there are well separated clusters or not. Gap statistics (\citealp{tibshiraniEstimatingNumberClusters2002}) can address this issue, but it can not be used with DTW.
 
 hierarchical clustering
 
