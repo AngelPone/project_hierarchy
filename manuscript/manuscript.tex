@@ -57,7 +57,7 @@
 2. forecast and reconciliation
 3. evaluation
 
-\subsection{Constructing hierarchies by clustering}
+\subsection{Cluster hierarchies}
 
 \cite{aghabozorgiTimeseriesClusteringDecade2015a} summarised the four components of time series clustering, including time series representations, distance measures, clustering algorithms and evaluation. In our framework, the first three components are involved in the constructing hierarchies procedure. The last component includes evaluation of reconciled forecasts of the original hierarchy.
 
@@ -88,21 +88,59 @@ In contrast, DTW (\citealp{sakoeDynamicProgrammingAlgorithm1978}), demonstrates 
 \subsubsection*{Clustering algorithms}
 \label{sec:clustering}
 
-Regarding clustering algorithms, we consider two common approaches, k-Medoids and agglomerative hierarchical clustering. K-Medoids algorithm is one of the classical partitioning clustering algorithms. The idea behind partitioning clustering is the minimisation of the total distance between all samples in a cluster from their cluster centres.  We consider k-Medoids instead of the well known k-Means because k-Means use mean vector of samples within a cluster as cluster centre, which is not trivial when using DTW distance measure. In contrast, k-Medoids select one of the samples in the cluster as cluster centre. We use the k-Meodoids variants partitioning around medoids (PAM, \citealp{PartitioningMedoidsProgram1990}). The most important parameter for k-Medoids algorithm is the number of cluster. We follow the suggestion of \cite{PartitioningMedoidsProgram1990} to choose the optimal number of cluster by average silhouette width (ASW), which is a popular cluster validation index to estimate the number of clusters. Given a clustering $\mathcal{C}$, the silhouette width for the $i$th sample is calculated as 
+
+
+
+Regarding clustering algorithms, we focus on two prevalent approaches, k-Medoids and agglomerative hierarchical clustering. The k-Medoids algorithm, a classical partitioning clustering method, aims to minimise the total distance between all samples within a cluster and their respective cluster centres. 
+Unlike k-Means, which employs the mean vector of samples as the cluster centre, k-Medoids selects one sample within the cluster as the centre. 
+Specifically, we adopt the k-Medoids variant, partitioning around medoids (PAM, \citealp{PartitioningMedoidsProgram1990}).
+Following the recommendation of \cite{PartitioningMedoidsProgram1990}, we determine the optimal number of cluster using the average silhouette width (ASW).
+ASW, a popular cluster validation index, assesses the quality of clustering results by measuring the proximity of samples within a cluster compared to neighbouring clusters.
+Given a clustering $\mathcal{C}$, the silhouette width for the $i$th sample is calculated as 
 \[
   SW(i) = \frac{b(i)-a(i)}{\max\{a(i), b(i)\}},  
 \]
-where $a(i)$ is the average distance of $i$the sample to samples in the cluster to which it is assigned, and $b(i)$ is the average distance of $i$th sample to the samples in the nearest cluster it is not assigned. A large value of silhouette means that the corresponding sample is much closer to the samples to the samples in its own cluster than to the neighbouring one. Silhouette width is zero for the sample which is the only sample in its cluster. ASW is calculated as the average of silhouette widths of all samples. By iterating over all possible number of clusters, we choose the clustering result $\mathcal{C}$ that maximises the ASW as the optimal result. One drawback of this approach is that ASW does not exist when there is only one cluster, meaning that it can not determine whether there are well separated clusters or not. Gap statistics (\citealp{tibshiraniEstimatingNumberClusters2002}) can address this issue, but it can not be used with DTW.
+where $a(i)$ represents the average distance of the $i$th sample to others in the same cluster, and $b(i)$ is the average distance to samples in the nearest cluster it is not assigned to. A higher silhouette width indicates greater proximity to samples within the same cluster than to those in neighbouring clusters. The ASW is the average of silhouette widths across all samples. We select the clustering result $\mathcal{C}$ that maximises the ASW by iterating over all possible numbers of clusters. However, an inherent limitation of ASW is its inexistence when there is only one cluster, making it challenging to discern the presence of well-separated clusters. Gap statistics (\citealp{tibshiraniEstimatingNumberClusters2002}) can be used to address this limitation, but it is incompatible with DTW.
 
-hierarchical clustering
+Agglomerative hierarchical clustering begins by considering each sample as a cluster, and then gradually merges clusters until all samples forms a single cluster. 
+This process results in a binary hierarchical tree with $2n-1$ nodes. We employ Ward's linkage (\citealp{murtaghWardHierarchicalAgglomerative2014a}) to merge clusters, minimising the increase in within-cluster variances at each step. Subsequently, we construct the middle-level series from the clustering tree. 
 
-\subsection{Constructing hierarchies randomly}
+Figure~\ref{fig:cluster_example} illustrates two example hierarchies generated by these clustering algorithms, showcasing their distinct behaviours. 
+The primary discrepancy between the two algorithms lies in two aspects. Firstly, k-Medoids constructs a hierarchy with a single middle level, while hierarchical clustering generates multiple middle levels with a nested structure. 
+Secondly, k-Medoids constructs a hierarchy with the same number of series as the optimal number of clusters, whereas hierarchical clustering produces multiple middle levels with $n-2$ series.
+These distinctions become particularly relevant when the number of bottom-level series is substantial.
+We aim to investigate how these structural differences influence the performance of forecast reconciliation.
 
-pure random
+\begin{figure}
+    \centering
+    \includegraphics[width=0.3\textwidth]{figures/pamcluster.pdf}
+    \hspace{1cm}
+    \includegraphics[width=0.3\textwidth]{figures/aggcluster.pdf}
+    \caption{\label{fig:cluster_example}Example clustering results of two clustering algorithms. Left panel displays example for k-Medoids algorithm, and right panel displays example for agglomerative hierarchical algorithm.}
+\end{figure}
 
-random based on specific structure
+\subsection{Random hierarchies}
 
-\subsection{Forecast combination}
+A fundamental question arises concerning the factor that plays the most crucial role if the constructed hierarchies resulting from clustering significantly enhance forecast performance. One plausible argument posits that the improved forecasting performance should attribute to the clustering procedure, which organises series with similar features into groups.
+This organisation creates middle-level series that are hypothesised to be easier to forecast, leading to improved reconciled forecasts. However, this logical chain is not readily traceable for two main reasons. Firstly, groups of similar time series do not inherently translate to superior middle-level forecasts. Secondly, existing literature lacks systematic theory regarding how the pattern of the variance matrix of base forecast errors influences the performance of reconciled forecasts. The complexities introduced by uncertainties in clustering, base forecasting model estimation, and variance matrix estimation compound the challenge of drawing definitive conclusions (\citealp{pritulargaStochasticCoherencyForecast2021}).
+
+An alternative explanation for this question posits that the enhancement is primarily a result of an increased number of middle-level series. The perspective of forecast reconciliation as a form of forecast combination (\citealp{hollymanUnderstandingForecastReconciliation2021}) supports this notion. As new hierarchies are constructed, the reconciled forecasts are combinations of a greater number of base forecasts, leading to improved reconciled forecasts.
+
+To systematically explore these two explanations, we propose two randomised approaches to hierarchy construction. Constructing hierarchies randomly allows us to eliminate the influence of clustering and focus specifically on investigating the second explanation. 
+The first approach generates hierarchies akin to those produced by k-Medoids clustering algorithms. Given $m$ bottom-level series and a number $k$, we create $\lceil\frac{m}{k}\rceil$ groups. The first $\lfloor\frac{m}{k}\rfloor$ groups each contain $k$ series, and the last group accommodates $n - k\lfloor\frac{n}{k}\rfloor$ series. The bottom-level series are then randomly assigned to these groups.
+This approach offers a straightforward way to construct random hierarchies, which is proposed to investigate the effect of new middle-level series and verify the second explanation. 
+
+The second approach involves generating random hierarchies based on a given hierarchy, such as one constructed from clustering algorithms. Given a hierarchy tree, it creates new hierarchies by randomly permuting the leaf nodes. In other words, it shuffles the columns of $A$ matrix of the given hierarchy. This method yields a new random hierarchy with an identical structure, enabling to verify both hypothesises simultaneously. If the randomised version of a hierarchy significantly outperforms itself, it suggests that the second explanation holds greater importance that the first, and vice versa. Figure~\ref{fig:aggcluster_random} shows an example of this approach. The left hierarchy is the hierarchy shown in Figure~\ref{fig:cluster_example} obtained from agglomerative hierarchical algorithm. The right hierarchy is an example of randomisation of the left hierarchy.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/aggcluster_random.pdf}
+    \caption{\label{fig:aggcluster_random}Examples of randomisation of a given hierarchy. Right hierarchy is obtained by shuffling the leaf nodes of left hierarchy.}
+\end{figure}
+
+\subsection{Combination hierarchies}
+
+Randomness technique is usually combined with forecast combination approach in the literature. For example, \cite{petropoulosExploringSourcesUncertainty2018a} illustrates the effectiveness of bootstrapping aggregation for time series forecasting which combines forecast obtained from bootstrapped versions of the time series. Therefore, we propose the ``combination hierarchies'' which utilises multiple hierarchies to obtain the reconciled forecasts. The hierarchies in the pool can be random hierarchies or cluster hierarchies. There are two straightforward approaches to combine multiple hierarchies. The first one is to combine their structure. 
 
 \section{Simulation}
 \label{sec:simulation}
