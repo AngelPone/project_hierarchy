@@ -1,5 +1,7 @@
-path <- "tourism"
-bfmethod <- "ets"
+args <- commandArgs(trailingOnly = TRUE)
+path <- args[[1]]
+bfmethod <- args[[2]]
+
 dt <- readRDS(sprintf("%s/%s/eval.rds", path, bfmethod))
 dt_orig <- readRDS(sprintf("%s/%s/batch_0.rds", path, bfmethod))
 dt_names <- readRDS(sprintf("%s/names.rds", path))
@@ -50,14 +52,6 @@ rank_compare_summary <- function(dt) {
   
   colnames(metric_mat) <- c(dtb$name, "base")
   tsutils::nemenyi(metric_mat, plot = "vmcb")
-  # lowest_rank <- min(mcbtest$means)
-  # mcbmeans <- mcbtest$means[c(dtb$method_name, "base")]
-  # dtb %>% select(representor, distance, cluster) %>% 
-  #   add_row(representor = "", distance = "", cluster = "base") %>%
-  #   mutate(avgrank = mcbmeans) %>%
-  #   mutate(sigworse = (mcbmeans > (lowest_rank + mcbtest$cd))) %>%
-  #   right_join(avg_n, by = c("representor", "cluster", "distance")) %>%
-  #   arrange(avgrank)
 }
 
 

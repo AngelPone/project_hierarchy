@@ -1,9 +1,16 @@
 # Created by https://www.toptal.com/developers/gitignore/api/macos,r,visualstudiocode,tex
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos,r,visualstudiocode,tex
 
-
+archive
 *.rds
+!names.rds
+!data.rds
 
+
+mortality/arima
+mortality/ets
+tourism/arima
+tourism/ets
 ### macOS ###
 # General
 .DS_Store
