@@ -107,7 +107,7 @@ library(foreach)
 dtb <- NULL
 dtb_base <- NULL
 
-for (batch in 0:batch_length) {
+for (batch in 0:(batch_length-1)) {
   print(sprintf("%s, %s", Sys.time(), batch))
   store_path <- sprintf("%s/%s/batch_%s.rds", path, bfmethod, batch)
   data <- readRDS(store_path)

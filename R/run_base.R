@@ -2,7 +2,7 @@ args <- commandArgs(trailingOnly = TRUE)
 path <- args[[1]]
 bfmethod <- args[[2]]
 
-num.cores <- 6
+num.cores <- 8
 
 cl <- parallel::makeCluster(num.cores)
 doParallel::registerDoParallel(cl)
@@ -19,15 +19,12 @@ forecast_horizon <- 12
 frequency <- 12
 batch_length <- time_length - 96 - forecast_horizon
 
-# REPRESENTORS <- c(rep(c("ts", "error", "forecast"), each = 6),
-#                   "ts.features", "error.features","ts.features", "error.features", "accuracy")
-# DISTANCES <- c(rep(c("euclidean", "manhattan", "dtw", "negcor", "cor", "uncorrelation"), 3),
-#                "euclidean", "euclidean", "manhattan", "manhattan", "euclidean")
+
 REPRESENTORS <- c("ts-dr", "error-dr", "ts.features-dr", "error.features-dr", "ts", "error")
 DISTANCES <- c(rep("euclidean", 4), "dtw", "dtw")
 
 # load dataset
-for (batch in 0:batch_length) {
+for (batch in 0:(batch_length-1)) {
   store_path <- sprintf("%s/%s/batch_%s.rds", path, bfmethod, batch)
   data <- hts(rbind(rep(1, m), diag(m)),
                bts = dt$data[1:(96+batch), (n-m+1):n],
@@ -35,13 +32,11 @@ for (batch in 0:batch_length) {
 
   data <- hts.basef(data, bfmethod, h=forecast_horizon, frequency=12)
 
-  # data <- readRDS(store_path)
   print(paste0(Sys.time(), "computing features ..."))
   data <- features.compute(data, frequency = frequency)
 
   print(paste0(Sys.time(), "computing distance matrix ..."))
   DISTANCEMAT <- list()
-  # DISTANCEMAT <- data$distance
   for (i in seq_along(REPRESENTORS)) {
     representor <- REPRESENTORS[i]
     distance <- DISTANCES[i]

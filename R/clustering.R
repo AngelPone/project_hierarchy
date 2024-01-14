@@ -71,11 +71,11 @@ cluster.kmedoids <- function(distance_mat, n_clusters) {
   
   grp2S <- function(grp) {
     grpvec <- grp$clustering
-    bad_groups <- which(summary(silhouette(grp))$clus.avg.width < 0.05)
+    # bad_groups <- which(summary(silhouette(grp))$clus.avg.width < 0.05)
     do.call(rbind, lapply(unique(grpvec), function(grp){
-      if (grp %in% bad_groups) {
-        return(NULL)
-      }
+      # if (grp %in% bad_groups) {
+      #   return(NULL)
+      # }
       S_row <- vector("numeric", NCOL(distance_mat))
       S_row[which(grpvec == grp)] <- 1
       S_row

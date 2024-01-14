@@ -28,7 +28,7 @@ REPRESENTORS2 <- c("ts", "error")
 DISTANCES2 <- rep("dtw", 2)
 
 # load dataset
-for (batch in 0:batch_length) {
+for (batch in 0:(batch_length-1)) {
   store_path <- sprintf("%s/%s/batch_%s.rds", path, bfmethod, batch)
   data <- readRDS(store_path)
   
@@ -37,7 +37,7 @@ for (batch in 0:batch_length) {
     nl <- build_level(hts = data, representor = REPRESENTORS[i],
                       distance = DISTANCES[i],
                       cluster = cluster.kmedoids,
-                      n_clusters = 1:50)
+                      n_clusters = 1:(m - 1))
     data <- add_nl(data, nl$S, REPRESENTORS[i], DISTANCES[i], "Kmedoids-dr",
                    other = nl$info)
   }
@@ -47,7 +47,7 @@ for (batch in 0:batch_length) {
     nl <- build_level(hts = data, representor = REPRESENTORS2[i],
                       distance = DISTANCES2[i],
                       cluster = cluster.kmedoids,
-                      n_clusters = 1:50)
+                      n_clusters = 1:(m - 1))
     data <- add_nl(data, nl$S, REPRESENTORS2[i], DISTANCES2[i], "Kmedoids",
                    other = nl$info)
   }
@@ -66,7 +66,7 @@ for (batch in 0:batch_length) {
   for (i in 1:50) {
     data <- add_nl(data, nl[,sample(NCOL(nl))], "", "", "hcluster-random")
   }
-  
+
   for (i in seq_along(REPRESENTORS2)) {
     print(sprintf("%s hcluster %s * %s ", Sys.time(), REPRESENTORS2[i], DISTANCES2[i]))
     nl <- build_level(hts = data, representor = REPRESENTORS2[i],

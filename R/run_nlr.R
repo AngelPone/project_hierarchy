@@ -26,10 +26,9 @@ for (batch in 0:batch_length) {
   data <- readRDS(store_path)
   
   for (i in 1:50) {
-    for (ncluster in 5:15) {
-      S <- cluster.random(data$distance$ts$dtw, n_clusters = ncluster)[[1]]
-      data <- add_nl(data, S, "", "", paste0("random-", ncluster))
-    }
+    ncluster <- 15
+    S <- cluster.random(data$distance$ts$dtw, n_clusters = ncluster)[[1]]
+    data <- add_nl(data, S, "", "", paste0("random-", ncluster))
   }
   
   newS <- dt$S[2:(n-m), ]
