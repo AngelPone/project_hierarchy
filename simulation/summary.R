@@ -2,7 +2,7 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 
-setting <- 2
+setting <- 1
 
 dt <- readRDS(sprintf("simulation/simulation%s.rds", setting))
 
@@ -13,7 +13,7 @@ acc <- dt$acc %>%
     do.call(c, x$rmse)
   })
 
-acc$methods <- c("C0", "C1", "A2", "random-20", "random-50", "C2", "C4", "C3", "A1", "Base")
+acc$methods <- c("Original", "Cluster", "Comb-random", "random-20", "random-50", "Cluster-trend1", "Cluster-season", "Cluster-trend2", "Comb-cluster", "Base")
 acc <- acc %>% filter(!startsWith(methods, "random"))
 
 acc_mat <- do.call(cbind, acc$values) %>%
@@ -42,7 +42,7 @@ visualizeSimPCA <- function(series) {
     labs(color = "Clusters")
 }
 
-pdf(sprintf("manuscript/figures/simu_mcb%s.pdf", setting), width = 5, height = 5)
+pdf(sprintf("manuscript/figures/simu_mcb%s.pdf", setting), width = 6, height = 5)
 tsutils::nemenyi(acc_mat, plottype = "vmcb")
 dev.off()
 
@@ -54,3 +54,5 @@ dev.off()
 pdf("manuscript/figures/simu_example.pdf", width = 16, height = 8)
 visualizeSimSeries(dt$series[[1]])
 dev.off()
+
+
