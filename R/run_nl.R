@@ -17,7 +17,7 @@ print(sprintf("%s dataset has %s series and %s bottom series", path, n, m))
 time_length <- NROW(dt$data)
 forecast_horizon <- 12
 frequency <- 12
-batch_length <- time_length - 96 - forecast_horizon
+batch_length <- time_length - 96 - forecast_horizon + 11
 
 
 REPRESENTORS <- c("ts-dr", "error-dr", "ts.features-dr", "error.features-dr")
@@ -28,10 +28,14 @@ REPRESENTORS2 <- c("ts", "error")
 DISTANCES2 <- rep("dtw", 2)
 
 # load dataset
-for (batch in 0:(batch_length-1)) {
+for (batch in 0:batch_length) {
   store_path <- sprintf("%s/%s/batch_%s.rds", path, bfmethod, batch)
   data <- readRDS(store_path)
-  
+  cluster <- sapply(data$nl, function(x){x$cluster})  
+  if ("Kmedoids-dr" %in% cluster) {
+    next
+  }
+
   for (i in seq_along(REPRESENTORS)) {
     print(sprintf("%s KMedoids dr %s * %s ", Sys.time(), REPRESENTORS[i], DISTANCES[i]))
     nl <- build_level(hts = data, representor = REPRESENTORS[i],
@@ -51,8 +55,7 @@ for (batch in 0:(batch_length-1)) {
     data <- add_nl(data, nl$S, REPRESENTORS2[i], DISTANCES2[i], "Kmedoids",
                    other = nl$info)
   }
-  
-  
+
   # hierarchical clustering dimension reduction
   for (i in seq_along(REPRESENTORS)) {
     nl <- build_level(hts = data, representor=REPRESENTORS[i],
@@ -60,11 +63,6 @@ for (batch in 0:(batch_length-1)) {
                       cluster = cluster.hcluster,
                       method = "ward")[[1]]
     data <- add_nl(data, nl, REPRESENTORS[i], DISTANCES[i], "hcluster-dr")
-  }
-
-  # hierarchical clustering dtw
-  for (i in 1:50) {
-    data <- add_nl(data, nl[,sample(NCOL(nl))], "", "", "hcluster-random")
   }
 
   for (i in seq_along(REPRESENTORS2)) {
@@ -78,13 +76,3 @@ for (batch in 0:(batch_length-1)) {
 
   saveRDS(data, store_path)
 }
-
-
-
-
-
-
-
-
-
-

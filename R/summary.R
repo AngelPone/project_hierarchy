@@ -2,12 +2,14 @@ args <- commandArgs(trailingOnly = TRUE)
 path <- args[[1]]
 bfmethod <- args[[2]]
 
+
 dt <- readRDS(sprintf("%s/%s/eval.rds", path, bfmethod))
 dt_orig <- readRDS(sprintf("%s/%s/batch_0.rds", path, bfmethod))
 dt_names <- readRDS(sprintf("%s/names.rds", path))
 source("R/run_nls.R")
 library(dplyr)
 library(ggplot2)
+library(Matrix)
 
 
 

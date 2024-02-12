@@ -2,73 +2,44 @@ args <- commandArgs(trailingOnly = TRUE)
 path <- args[[1]]
 bfmethod <- args[[2]]
 
-cl <- parallel::makeCluster(8)
-doParallel::registerDoParallel(cl)
+# cl <- parallel::makeCluster(8)
+# doParallel::registerDoParallel(cl)
 
 dt <- readRDS(sprintf("%s/data.rds", path))
 n <- NROW(dt$S)
 m <- NCOL(dt$S)
 print(sprintf("%s dataset has %s series and %s bottom series", path, n, m))
 time_length <- NROW(dt$data)
-forecast_horizon <- 12
+forecast_horizon <- 1
 frequency <- 12
+batch_length <- time_length - 96 + 12
 batch_length <- time_length - 96 - forecast_horizon
 
-metrics <- c("rmse", "mae", "rmsse", "mase")
+metrics <- c("rmsse")
 source("R/metrics.R")
 
-hts.eval <- function(df, metrics, tts, bts) {
-  tts <- cbind(rowSums(tts), tts)
+
+hts.eval2 <- function(df, metrics, tts, bts) {
+  if (is.null(dim(tts))) {
+    tts <- c(sum(tts), tts)
+    tts <- matrix(tts, nrow = 1)
+  } else {
+    tts <- cbind(rowSums(tts), tts)[1:forecast_horizon,,drop=FALSE]
+  }
+  
   bts <- cbind(rowSums(bts), bts)
   
-  # random
-  randoms <- unique(df$cluster[which(startsWith(df$cluster, "random"))])
-  randoms <- c(randoms, "hcluster-random")
-  df_random <- list()
-  df_random$S <- vector("list", 3*length(randoms) + 1)
-  df_random$other <- vector("list", 3*length(randoms) + 1)
-  df_random$cluster <- c()
-  df_random$rf <- list()
-  df_random$representor <- rep("", 3*length(randoms) + 1)
-  df_random$distance <- rep("", 3*length(randoms) + 1)
-  for (rd in randoms) {
-    tmpdt <- df %>% filter(cluster == rd)
-    for (random_n in c(10, 20, 50)) {
-      avg_rf <- list()
-      for (rf_method in c("ols", "wlss", "wlsv", "mint")) {
-        avg_rf_method <- 
-          do.call(abind::abind, list(lapply(tmpdt$rf, function(x) x[[rf_method]]), along=0))
-        avg_rf[[rf_method]] <- 
-          apply(avg_rf_method[1:random_n, ,], c(2, 3), mean)
-      }
-      df_random$cluster <- c(df_random$cluster, paste0(rd, "-", random_n))
-      df_random$rf <- append(df_random$rf, list(avg_rf))
-    }
-  }
-  # cluster average
-  df_random$cluster <- c(df_random$cluster, "cluster-average")
-  avg_rf <- list()
-  tmpdt <- df %>% filter(cluster %in% c("Kmedoids-dr", "hcluster-dr")) %>%
-    rbind(df %>% filter(distance == "dtw", representor %in% c("ts", "error")))
-  for (rf_method in c("ols", "wlss", "wlsv", "mint")) {
-    avg_rf_method <- 
-      do.call(abind::abind, list(lapply(tmpdt$rf, function(x) x[[rf_method]]), along=0))
-    avg_rf[[rf_method]] <- 
-      apply(avg_rf_method, c(2, 3), mean)
-  }
-  df_random$rf <- append(df_random$rf, list(avg_rf))
-  
-  df <- df %>% filter(!startsWith(cluster, "random")) %>%
-    filter(cluster != "hcluster-random") %>%
-    rbind(as_tibble(df_random))
+  # df <- df %>% filter(!startsWith(cluster, "random")) %>%
+  #   filter(cluster != "hcluster-random")
+  #   # filter(!startsWith(cluster, "permute")) %>%
+  #   # filter(cluster != "")
   
   for (metric in metrics) {
     accuracy_method <- get(paste0("metric.", metric))
     
-    df[[metric]] <- foreach::foreach(g=iterators::iter(df$rf)) %dopar%  {
-      lapply(g, function(c) { 
-        sapply(1:NCOL(c), function(x) { accuracy_method(tts[,x], c[,x], bts[,x]) } )
-      })
+    df[[metric]] <- foreach::foreach(g=iterators::iter(df$rf)) %do%  {
+      c <- g[['mint']][1:forecast_horizon,,drop=FALSE]
+      sapply(1:NCOL(c), function(x) { accuracy_method(tts[,x], c[,x], bts[,x]) } )
     }
   }
   df
@@ -91,13 +62,19 @@ nl2tibble <- function(x) {
 }
 
 hts.evalbase <- function(dt, metrics) {
-  tts <- cbind(rowSums(dt$tts), dt$tts)
+  if (is.null(dim(dt$tts))){
+    tts <- c(sum(dt$tts), dt$tts)
+    tts <- matrix(tts, nrow=1)
+  } else {
+    tts <- cbind(rowSums(dt$tts), dt$tts)[1:forecast_horizon,,drop=FALSE]
+  }
+  
   bts <- cbind(rowSums(dt$bts), dt$bts)
   output <- list()
   for (metric in metrics) {
     accuracy_method <- get(paste0("metric.", metric))
     output[[metric]] <-
-      list(sapply(1:NCOL(bts), function(x) { accuracy_method(tts[,x], dt$basef[,x], bts[,x]) } ))
+      list(sapply(1:NCOL(bts), function(x) { accuracy_method(tts[,x], dt$basef[1:forecast_horizon,x], bts[,x]) } ))
   }
   output
 }
@@ -107,12 +84,13 @@ library(foreach)
 dtb <- NULL
 dtb_base <- NULL
 
-for (batch in 0:(batch_length-1)) {
+
+for (batch in 0:batch_length) {
   print(sprintf("%s, %s", Sys.time(), batch))
   store_path <- sprintf("%s/%s/batch_%s.rds", path, bfmethod, batch)
   data <- readRDS(store_path)
   data_tibble <- nl2tibble(data$nl)
-  data_tibble <- hts.eval(data_tibble, metrics, data$tts, data$bts)
+  data_tibble <- hts.eval2(data_tibble, metrics, data$tts, data$bts)
 
   data_tibble <- data_tibble %>% select(-rf) %>% mutate(batch = batch)
   dtb <- rbind(dtb, data_tibble)

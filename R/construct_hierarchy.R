@@ -58,7 +58,9 @@ hts.nlf <- function(htst, f_str, h, frequency) {
   f <- get(paste0("f.", f_str))
   
   idx2forecast <- which(sapply(htst$nl, function(x) {length(x$rf) == 0}))
-  
+  if (length(idx2forecast) == 0) {
+    return(htst)
+  }
   smat2sstr <- function(S) {
     S_str <- c()
     for (i in 1:NROW(S)) {
@@ -101,7 +103,9 @@ hts.nlf <- function(htst, f_str, h, frequency) {
     basef_nl <- do.call(cbind, lapply(S_str, function(g) { bf[[g]]$basef }))
     resid_nl <- do.call(cbind, lapply(S_str, function(g) { bf[[g]]$resid }))
     
-    basef <- cbind(htst$basef[,1], basef_nl, htst$basef[,2:NCOL(htst$basef)])
+    basef <- cbind(htst$basef[,1,drop=FALSE], 
+                   basef_nl, 
+                   htst$basef[,2:NCOL(htst$basef),drop=FALSE])
     resid <- cbind(htst$resid[,1], resid_nl, htst$resid[,2:NCOL(htst$basef)])
     
 

@@ -15,14 +15,16 @@ print(sprintf("%s dataset has %s series and %s bottom series", path, n, m))
 time_length <- NROW(dt$data)
 forecast_horizon <- 12
 frequency <- 12
-batch_length <- time_length - 96 - forecast_horizon
+batch_length <- time_length - 96 - forecast_horizon + 11
 
-for (batch in 0:(batch_length-1)) {
+for (batch in 0:(batch_length)) {
   print(sprintf("%s batch %s ....", Sys.time(), batch))
   store_path <- sprintf("%s/%s/batch_%s.rds", path, bfmethod, batch)
   data <- readRDS(store_path)
   
+  forecast_horizon <- min(c(12, time_length - 96 - batch))
   data <- hts.nlf(data, bfmethod, frequency=frequency, h=forecast_horizon)
   
   saveRDS(data, store_path)
 }
+
