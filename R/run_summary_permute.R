@@ -421,7 +421,7 @@ for (path in c("tourism", "mortality")) {
     test_ <- nemenyi(all_rmsse3, plottype = "vmcb", target = "Average")
     dev.off()
     rank_average_tbl[["mortality"]] <-
-      c(colMeans(all_rmsse3)[1], which(names(test_$means) == "Average"))
+      c(round(colMeans(all_rmsse3)[1]*100, digits=3), which(names(test_$means) == "Average"))
   }
 }
 
