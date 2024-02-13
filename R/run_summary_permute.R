@@ -254,7 +254,7 @@ rmsse_benchmarks <- NULL
 rank_natural_tbl <- list()
 rank_cluster_tbl <- list()
 
-for (path in c("tourism", "moratlity")) {
+for (path in c("tourism", "mortality")) {
   dt <- readRDS(sprintf("%s/%s/eval.rds", path, "ets"))
   # MCB Test based on single series rmsse
   # pdf(sprintf("manuscript/figures/%s_natural_mcb_single.pdf", path),width = 8, height = 6)
@@ -355,7 +355,7 @@ for (path in c("tourism", "moratlity")) {
   } else {
     rmsse_benchmarks <- bench_rmsse %>% 
       rename(mortality = "rmsse") %>%
-      left_join(rmsse_benchmarks, on = "method")
+      left_join(rmsse_benchmarks, by = "method")
   }
   rank_natural_tbl[[path]] <- c(
     bench_rmsse$rmsse[which(bench_rmsse$method == "Natural")],
@@ -368,8 +368,8 @@ for (path in c("tourism", "moratlity")) {
     # averaging
     rank_average_tbl <- list()
     all_rmsse3 <- NULL
-    for (batch in unique(bench_rmsse$batch)) {
-      store_path <- sprintf("%s/%s/batch_%s.rds", path, bfmethod, batch)
+    for (batch in unique(dt$dtb$batch)) {
+      store_path <- sprintf("%s/%s/batch_%s.rds", path, "ets", batch)
       data <- readRDS(store_path)
       data_tibble <- nl2tibble(data$nl) %>% 
         filter(representor != "")
@@ -400,8 +400,12 @@ for (path in c("tourism", "moratlity")) {
           sapply(x$rf, function(g) { g[["mint"]][1:forecast_horizon,,drop=FALSE] }, simplify = "array") %>%
             apply(c(1,2), mean)
         })
-      
-      tts <- cbind(rowSums(data$tts), data$tts)[1:forecast_horizon,,drop=FALSE]
+      if (is.null(dim(data$tts))){
+        tts <- c(sum(data$tts), data$tts)
+        tts <- matrix(tts, nrow=1)
+      } else { 
+        tts <- cbind(rowSums(data$tts), data$tts)[1:forecast_horizon,,drop=FALSE]
+      }
       bts <- cbind(rowSums(data$bts), data$bts)
       
       rmsses <- sapply(iterators::iter(avg$rf), function(f) {
