@@ -6,7 +6,7 @@ source("R/reconciliation.R")
 
 set.seed(43)
 
-cl <- parallel::makeCluster(4)
+cl <- parallel::makeCluster(8)
 doParallel::registerDoParallel(cl)
 
 simulate.season <- function(freq = 12, length = 12, nseries = 50, oppsite.season = TRUE, allow.trend = TRUE, opposite.trend = FALSE) {
@@ -36,6 +36,9 @@ simulate.season <- function(freq = 12, length = 12, nseries = 50, oppsite.season
   trend + errors + seasons
 }
 
+new_groups <- lapply(1:100, function(x){
+  sample(120)
+})
 
 simulate.forecast <- function(series) {
 
@@ -53,12 +56,27 @@ simulate.forecast <- function(series) {
   nl <- vector("list", 54)
   grp <- rep(1:(m/20), each = 20)
   nl[[1]] <- grp2S(grp)
-  for (i in 2:51) {
-    nl[[i]] <- grp2S(sample(grp, length(grp)))
+  for (i in 2:101) {
+    nl[[i]] <- nl[[1]][,new_groups[[i-1]]]
   }
-  nl[[52]] <- grp2S(rep(1:3, each=40))
-  nl[[53]] <- grp2S(rep(c(1,2, 1, 2, 1, 2), each=20))
-  nl[[54]] <- grp2S(rep(c(1,2, 1), each=40))
+  
+  grp <- grp2S(rep(1:3, each=40))
+  for (i in 102:201) {
+    nl[[i]] <- grp[,new_groups[[i-101]]]
+  }
+  nl[[302]] <- grp
+  
+  grp <- grp2S(rep(c(1,2, 1, 2, 1, 2), each=20))
+  for (i in 202:301) {
+    nl[[i]] <- grp[,new_groups[[i-201]]]
+  }
+  nl[[303]] <- grp
+  
+  grp <- grp2S(rep(c(1,2, 1), each=40))
+  nl[[304]] <- grp
+  for (i in 305:404) {
+    nl[[i]] <- grp[, new_groups[[i-304]]]
+  }
   
   all_S <- rbind(rep(1,m), do.call(rbind, nl), diag(m))
   allts <- bts %*% t(all_S)
@@ -80,39 +98,18 @@ simulate.forecast <- function(series) {
     cumNROW <- cumNROW+NROW(nl[[i]])
   }
   
+  
   C <- matrix(1, ncol=m)
   basef <- do.call(cbind, lapply(bf[c(1, bottom_idx)], function(x) {x$fcasts}))
   resid <- do.call(cbind, lapply(bf[c(1, bottom_idx)], function(x) {x$resid}))
   recf_output <- list()
   recf_output[[1]] <- reconcile.mint(C, basef, resid) # no cluster
-  recf_output[[2]] <- recfs[[1]] # correct cluster
-  # random 10, 20, 50
-  recf_output[[3]] <- apply(do.call(abind::abind, list(recfs[2:51], along=0))[1:10,,],
-                     c(2, 3), mean)
-  recf_output[[4]] <- apply(do.call(abind::abind, list(recfs[2:51], along=0))[1:20,,],
-                     c(2, 3), mean)
-  recf_output[[5]] <- apply(do.call(abind::abind, list(recfs[2:51], along=0))[1:50,,],
-                     c(2, 3), mean)
-  recf_output[[6]] <- recfs[[52]]
-  recf_output[[7]] <- recfs[[53]]
-  recf_output[[8]] <- recfs[[54]]
-  recf_output[[9]] <- apply(do.call(abind::abind, list(recfs[c(1, 52, 53, 54)], along=0)),
-                            c(2, 3), mean)
-  recf_output[[10]] <- do.call(cbind, lapply(bf[c(1, bottom_idx)], function(x) {x$fcasts}))
-  methods <- c("no-cluster", "correct-cluster", "random-10", "random-20", "random-50",
-               "trend-cluster", "season-cluster", "trend-cluster2", "cluster-average", "base")
-  
-  # evaluate
-  rmse <- vector("list", 5)
-  tts <- cbind(rowSums(tts), tts)
-  for (i in seq_along(recf_output)) {
-    rmse[[i]] <- unname(sqrt(colMeans((recf_output[[i]] - tts)^2)))
-  }
-  list(methods=methods, rmse=rmse)
+  recf_output[2:(length(recfs) + 1)] <- recfs
+  recf_output
 }
 
-output <- NULL
-generated_series <- vector("list", 121)
+output <- list()
+generated_series <- vector("list", 500)
 
 
 for (i in 1:500) {
@@ -126,14 +123,11 @@ for (i in 1:500) {
     simulate.season(freq = 12, length = 12, nseries = 20, allow.trend = TRUE, oppsite.season = TRUE, opposite.trend = TRUE)
   )
   
-  output <- as_tibble(simulate.forecast(simulated_series)) %>% 
-    mutate(batch = i) %>%
-    rbind(output)
+  output[[i]] <- simulate.forecast(simulated_series)
   generated_series[[i]] <- simulated_series
 }
 
 saveRDS(list(acc = output, series = generated_series), "simulation/simulation.rds")
-
 
 
 
