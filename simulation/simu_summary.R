@@ -1,74 +1,100 @@
 rm(list=ls())
 dt <- readRDS("simulation/simulation.rds")
+library(dplyr)
 source("R/metrics.R")
+source("R/expr_utils.R")
+
+forecast_horizon <- 1
 
 rmsse <- function(pred, obs, hist) {
   obs <- cbind(rowSums(obs), obs)
   hist <- cbind(rowSums(hist), hist)
   mean(sapply(1:NCOL(pred), function(x){
-    metric.rmsse(pred[,x], obs[,x], hist[,x])
+    metric.rmsse(pred[1:forecast_horizon,x,drop=FALSE], 
+                 obs[1:forecast_horizon,x,drop=FALSE], 
+                 hist[,x,drop=FALSE])
   }))
 }
 
 
 no_hierarchy <- 1
 best_hierarchy <- 2
-permute_6 <- 3:102
-permute_3 <- 103:202
-permute_2 <- 203:302
-trend_dir <- 303
-season <- 304
-trned_exis <- 305
+permute_best <- 3:102
 
+permute_trend <- 103:202
+trend_dir <- 303
+
+season <- 304
+permute_season <- 203:302
+
+trend_exis <- 305
+permute_trend_exis <- 306:405
+
+evaluate_idx <- function(idx) {
+  sapply(1:500, function(x) {
+    rmsse(
+      dt$acc[[x]][[idx]],
+      t(dt$series[[x]][,133:144]),
+      t(dt$series[[x]][,1:132])
+    )
+  })
+}
 
 compare_random <- function(idx_orig, idx_random) {
-  f <- dt$acc
-  all_rmsse <- NULL
-  for (i in seq_along(dt$acc)) {
-    tts <- t(dt$series[[i]][,133:144])
-    bts <- t(dt$series[[i]][,1:132])
-    f_orig_ <- f[[i]][[idx_orig]]
-    f_permu_ <- f[[i]][idx_random]
-    
-    rmsse_orig <- rmsse(f_orig_, tts, bts)
-    rmsse_permu_ <- sapply(iterators::iter(f_permu_), function(g){
-      rmsse(g, tts, bts)
-    })
-    all_rmsse <- rbind(all_rmsse, c(rmsse_orig, rmsse_permu_))
-  }
-  all_rmsse
+  do.call(cbind, lapply(c(idx_orig, idx_random), evaluate))
 }
 
 test <- function(mat, name) {
-  for (i in 1:NROW(mat)) {
-    mat[i,2:101] <- sort(mat[i,2:101])
-  }
   colnames(mat) <- c(name, 1:100)
-  test_ <- tsutils::nemenyi(mat, plottype = "none")
-  which(colnames(test_$interval) == name)
+  nemenyi(mat, plottype = "vmcb", target = name)
 }
 
 # natural hierarchy vs its counterpart
-natural_ <- compare_random(best_hierarchy, permute_6)
-test(natural_, "natural")
+pdf("manuscripts/figures/simulation_permute_cluster.pdf")
+natural_ <- evaluate_idx(best_hierarchy)
+natural_test <- test(cbind(natural_, evaluate_idx(permute_best)), "Cluster")
+dev.off()
 # 39
 
 # season
-season_ <- compare_random(season, permute_2)
-test(season_, "season")
+print("Evaluating Season ...")
+# season_ <- compare_random(season, permute_season)
+season_ <- evaluate_idx(season)
+# test(season_, "Cluster-season")
 # 53
 
 # trend existence
-trned_exis_ <- compare_random(trned_exis, permute_2)
-test(trned_exis_, "trend existence")
+print("Evaluating trend existence ...")
+trend_exis_ <- evaluate_idx(trend_exis)
+# test(trned_exis_, "Cluster-trend2")
 # 48
 
 # trend direction
-trend_dir_ <- compare_random(trend_dir, permute_3)
-test(trend_dir_, "trend direction")
+print("Evaluating trend direction ...")
+trend_dir_ <- evaluate_idx(trend_dir)
+# test(trend_dir_, "Cluster-trend1")
 # 27
 
+two_level <- evaluate_idx(1)
 
+
+calculate_base <- function() {
+  base_ <- lapply(1:500, function(x){
+    all_series <- t(rbind(colSums(dt$series[[x]]), dt$series[[x]]))
+    train <- all_series[1:132,]
+    test <- all_series[133:(133+forecast_horizon),,drop=FALSE]
+    fcasts <- lapply(iterators::iter(train, by="column"), function(y) {
+      mdl <- ets(ts(y, frequency = 12))
+      as.numeric(
+        forecast(mdl, h=forecast_horizon)$mean
+      )
+    }) %>% do.call(cbind, .)
+    rmsse(fcasts, test, train)
+  })
+}
+
+
+print("Evaluating comb ...")
 method_idx <- c(2, 303, 304, 305)
 all_rmsse <- NULL
 for (i in seq_along(dt$acc)) {
@@ -78,7 +104,7 @@ for (i in seq_along(dt$acc)) {
   f_orig_ <- apply(simplify2array(dt$acc[[i]][method_idx]), c(1,2), mean)
   f_permu_ <- lapply(1:100, function(j) {
     apply(simplify2array(
-      dt$acc[[i]][c(permute_6[j], permute_3[j], permute_2[j], permute_2[j])]
+      dt$acc[[i]][c(permute_best[j], permute_trend[j], permute_season[j], permute_trend_exis[j])]
     ), c(1,2), mean)
   })
   
@@ -90,18 +116,37 @@ for (i in seq_along(dt$acc)) {
 }
 
 # 51
-test(all_rmsse, "average")
+pdf("manuscript/figures/simulation_permu_comb.pdf")
+comb_test <- test(all_rmsse, "Comb")
+dev.off()
 
-for (i in 1:500) {
-  all_rmsse[,2:101] <- sort(all_rmsse[,2:101])
-}
 
-mat <- cbind(natural_[,1], season_[,1], trend_dir_[,1], trned_exis_[,1], all_rmsse)
-colnames(mat) <- c("Natural", "Season", "Trend direction", "trend existence", "average", 1:100)
-test_ <- nemenyi(mat, plottype = "none")
+print("evaluating base ...")
+base_ <- calculate_base()
 
-which(colnames(test_$intervals) == "Natural") #51
-which(colnames(test_$intervals) == "Season") # 56
-which(colnames(test_$intervals) == "Trend direction") #49
-which(colnames(test_$intervals) == "trend existence") #55
-which(colnames(test_$intervals) == "average") #52
+
+cluster_mat <- cbind(base_, two_level, natural_, trend_dir_, trend_exis_, season_)
+colnames(cluster_mat) <- c("Base", "Two-level", "Cluster", "Cluster-trend1", "Cluster-trend2", "Cluster-season")
+clusters_tbl <- data.frame(
+  method = c("Base", "Two-level", "Cluster", "Cluster-trend1", "Cluster-trend2", "Cluster-season"),
+  rmsse = colMeans(cluster_mat) * 100
+) %>%
+  arrange(rmsse) %>%
+  mutate(rmsse = round(rmsse, digits=2)) %>%
+  write.csv("manuscript/figures/simulation_methods.csv")
+
+pdf("manuscript/figures/simulation_mcb.pdf")
+tsutils::nemenyi(cluster_mat, plottype = "vmcb")
+dev.off()
+
+output <- list()
+output$cluster <- c(
+  which(names(natural_test$means) == "Cluster"),
+  mean(natural_)
+)
+
+output$comb <- c(
+  which(names(comb_test$means) == "Comb"),
+  mean(all_rmsse[,1])
+)
+data.frame(output) %>% write.csv("manuscript/simulation_ranktbl.csv")
