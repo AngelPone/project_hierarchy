@@ -57,10 +57,10 @@ test <- function(mat, name) {
 }
 
 # natural hierarchy vs its counterpart
-pdf("manuscript/figures/simulation_permute_cluster.pdf")
+# pdf("manuscript/figures/simulation_permute_cluster.pdf")
 natural_ <- evaluate_idx(best_hierarchy)
 natural_test <- test(cbind(natural_, evaluate_idx(permute_best)), "Cluster")
-dev.off()
+# dev.off()
 # 39
 
 # season
@@ -86,6 +86,10 @@ two_level <- evaluate_idx(1)
 
 
 calculate_base <- function() {
+  if (file.exists("simulation/base.rds")){
+    return (sapply(readRDS("simulation/base.rds"), function(x){x}))
+  }
+  library(forecast)
   base_ <- lapply(1:500, function(x){
     all_series <- t(rbind(colSums(dt$series[[x]]), dt$series[[x]]))
     train <- all_series[1:132,]
@@ -98,33 +102,42 @@ calculate_base <- function() {
     }) %>% do.call(cbind, .)
     rmsse(fcasts, test, train)
   })
+  saveRDS(base_, "simulation/base.rds")
+  return(sapply(base_, function(x){x}))
 }
 
+calculate_comb <- function(){
+  if (file.exists("simulation/comb.rds")){
+    return (readRDS("simulation/comb.rds"))
+  }
+  method_idx <- c(2, 303, 304, 305)
+  all_rmsse <- NULL
+  for (i in seq_along(dt$acc)) {
+    print(i)
+    tts <- t(dt$series[[i]][,133:144])
+    bts <- t(dt$series[[i]][,1:132])
+    f_orig_ <- apply(simplify2array(dt$acc[[i]][method_idx]), c(1,2), mean)
+    f_permu_ <- lapply(1:100, function(j) {
+      apply(simplify2array(
+        dt$acc[[i]][c(permute_best[j], permute_trend[j], permute_season[j], permute_trend_exis[j])]
+      ), c(1,2), mean)
+    })
+    
+    rmsse_orig <- rmsse(f_orig_, tts, bts)
+    rmsse_permu_ <- sapply(iterators::iter(f_permu_), function(g){
+      rmsse(g, tts, bts)
+    })
+    all_rmsse <- rbind(all_rmsse, c(rmsse_orig, rmsse_permu_))
+  }
+  saveRDS(all_rmsse, "simulation/comb.rds")
+  all_rmsse
+}
 
 print("Evaluating comb ...")
-method_idx <- c(2, 303, 304, 305)
-all_rmsse <- NULL
-for (i in seq_along(dt$acc)) {
-  print(i)
-  tts <- t(dt$series[[i]][,133:144])
-  bts <- t(dt$series[[i]][,1:132])
-  f_orig_ <- apply(simplify2array(dt$acc[[i]][method_idx]), c(1,2), mean)
-  f_permu_ <- lapply(1:100, function(j) {
-    apply(simplify2array(
-      dt$acc[[i]][c(permute_best[j], permute_trend[j], permute_season[j], permute_trend_exis[j])]
-    ), c(1,2), mean)
-  })
-  
-  rmsse_orig <- rmsse(f_orig_, tts, bts)
-  rmsse_permu_ <- sapply(iterators::iter(f_permu_), function(g){
-    rmsse(g, tts, bts)
-  })
-  all_rmsse <- rbind(all_rmsse, c(rmsse_orig, rmsse_permu_))
-}
-
-# 51
+comb_rmsse <- calculate_comb()
+# # 51
 pdf("manuscript/figures/simulation_permu_comb.pdf")
-comb_test <- test(all_rmsse, "Comb")
+comb_test <- test(comb_rmsse, "Comb")
 dev.off()
 
 
@@ -154,6 +167,6 @@ output$cluster <- c(
 
 output$comb <- c(
   which(names(comb_test$means) == "Comb"),
-  mean(all_rmsse[,1])
+  mean(comb_rmsse[,1])
 )
 data.frame(output) %>% write.csv("manuscript/simulation_ranktbl.csv")
