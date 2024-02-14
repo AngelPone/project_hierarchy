@@ -31,6 +31,13 @@ trend_exis <- 305
 permute_trend_exis <- 306:405
 
 evaluate_idx <- function(idx) {
+  
+  if (length(idx) > 1) {
+    output <- do.call(cbind, lapply(idx, function(x){
+      evaluate_idx(x)
+    }))
+    return(output)
+  }
   sapply(1:500, function(x) {
     rmsse(
       dt$acc[[x]][[idx]],
@@ -50,7 +57,7 @@ test <- function(mat, name) {
 }
 
 # natural hierarchy vs its counterpart
-pdf("manuscripts/figures/simulation_permute_cluster.pdf")
+pdf("manuscript/figures/simulation_permute_cluster.pdf")
 natural_ <- evaluate_idx(best_hierarchy)
 natural_test <- test(cbind(natural_, evaluate_idx(permute_best)), "Cluster")
 dev.off()
