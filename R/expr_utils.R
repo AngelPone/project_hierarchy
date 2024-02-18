@@ -161,9 +161,13 @@ nemenyi <- function (data, conf.level = 0.95, sort = c(TRUE, FALSE), plottype = 
       points(ranks.means, 1:cols.number, pch = 20, lwd = 0.5)
       if (cols.number > 30) {
         target_loc <- which(names(ranks.means) == target)
-        axis_at <- seq(target_loc, 1, -5)
-        axis_at <- sort(axis_at[2:(length(axis_at))])
-        axis_at <- c(axis_at, seq(target_loc, cols.number, 5))
+        axis_at <- seq(1, 101, 20)
+        idx_at <- which(abs(target_loc - axis_at) <= 5)
+        if (length(idx_at) == 1) {
+          axis_at[idx_at] <- target_loc
+        } else {
+          axis_at <- c(axis_at, target_loc)
+        }
         axis_labels <- paste0(labels[axis_at], 
                               " - ", 
                               sprintf("%1.2f", round(ranks.means[axis_at], 2)))

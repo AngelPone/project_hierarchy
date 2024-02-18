@@ -1,6 +1,6 @@
 args <- commandArgs(trailingOnly = TRUE)
 path <- args[[1]]
-bfmethod <- args[[2]]
+bfmethod <- "ets"
 
 # cl <- parallel::makeCluster(8)
 # doParallel::registerDoParallel(cl)
@@ -10,7 +10,7 @@ n <- NROW(dt$S)
 m <- NCOL(dt$S)
 print(sprintf("%s dataset has %s series and %s bottom series", path, n, m))
 time_length <- NROW(dt$data)
-forecast_horizon <- 1
+forecast_horizon <- as.integer(args[[2]])
 frequency <- 12
 batch_length <- time_length - 96 + 12
 batch_length <- time_length - 96 - forecast_horizon
@@ -29,10 +29,50 @@ hts.eval2 <- function(df, metrics, tts, bts) {
   
   bts <- cbind(rowSums(bts), bts)
   
-  # df <- df %>% filter(!startsWith(cluster, "random")) %>%
-  #   filter(cluster != "hcluster-random")
-  #   # filter(!startsWith(cluster, "permute")) %>%
-  #   # filter(cluster != "")
+  data_tibble <- df %>% filter(representor != "")
+  
+  data_tibble$permute <- sapply(data_tibble$cluster, function(x){
+    if (!startsWith(x, "permute")) {
+      return (0)
+    }
+    x <- strsplit(x, "-")[[1]]
+    x <- x[length(x)]
+    as.integer(x)
+  })
+  data_tibble$cluster <- sapply(data_tibble$cluster, function(x){
+    if (!startsWith(x, "permute")) {
+      return (x)
+    }
+    split_x <- strsplit(x, "-")[[1]]
+    x <- stringi::stri_replace_all_fixed(x, "permute-", "")
+    x <- stringi::stri_replace_all_fixed(x, paste0("-", split_x[length(split_x)]), "")
+    x
+  })
+  
+  avg <- data_tibble %>% select(representor, cluster, distance, rf, permute) %>%
+    arrange(permute) %>%
+    group_by(permute) %>%
+    tidyr::nest(rf = -"permute") %>%
+    mutate_at("rf", purrr::map, function(x) {
+      if (dim(x)[1] != 12) {
+        return(NULL)
+      }
+      output <- lapply(c("ols", "wlss", "wlsv", "mint"), function(m) {
+        sapply(x$rf, function(g) { g[[m]][1:forecast_horizon,,drop=FALSE] }, simplify = "array") %>%
+          apply(c(1,2), mean)
+      })
+      names(output) <- c("ols", "wlss", "wlsv", "mint")
+      output
+    }) %>% rowwise() %>%
+    filter(!is.null(rf)) %>% ungroup() %>%
+    mutate(permute = paste0(ifelse(permute > 0, "permute-", ""), 
+                            "average", 
+                            ifelse(permute > 0, paste0("-", permute), ""))) %>%
+    mutate(representor="", distance="", other=list(NULL), S=list(NULL)) %>%
+    rename(cluster=permute)
+  
+  df <- df %>% rbind(avg)
+
   
   for (metric in metrics) {
     accuracy_method <- get(paste0("metric.", metric))
@@ -87,7 +127,7 @@ dtb_base <- NULL
 
 for (batch in 0:batch_length) {
   print(sprintf("%s, %s", Sys.time(), batch))
-  store_path <- sprintf("%s/%s/batch_%s.rds", path, bfmethod, batch)
+  store_path <- sprintf("%s/ets/batch_%s.rds", path, batch)
   data <- readRDS(store_path)
   data_tibble <- nl2tibble(data$nl)
   data_tibble <- hts.eval2(data_tibble, metrics, data$tts, data$bts)
@@ -98,7 +138,7 @@ for (batch in 0:batch_length) {
                       mutate(batch = batch))
 }
 
-saveRDS(list(base = dtb_base, dtb = dtb), sprintf("%s/%s/eval.rds", path, bfmethod))
+saveRDS(list(base = dtb_base, dtb = dtb), sprintf("%s/%s/eval_%s.rds", path, bfmethod, forecast_horizon))
 
 
 

@@ -18,7 +18,7 @@ method_name <- function(representor, distance, cluster) {
   cluster <- strsplit(cluster, "-")[[1]][1]
   cluster <- ifelse(
     !is.na(cluster),
-    switch(cluster, natural="Natural", Kmedoids="ME", hcluster="HC", base="Base"),
+    switch(cluster, natural="Natural", Kmedoids="ME", hcluster="HC", base="Base", "average"="Average"),
     "Two-level"
   )
   paste0(representor, cluster, distance)
@@ -71,39 +71,95 @@ rmsse_benchmarks <- NULL
 rank_natural_tbl <- list()
 rank_cluster_tbl <- list()
 
-for (path in c("tourism", "mortality")) {
-  dt <- readRDS(sprintf("%s/%s/eval.rds", path, "ets"))
-  # MCB Test based on single series rmsse
-  # pdf(sprintf("manuscript/figures/%s_natural_mcb_single.pdf", path),width = 8, height = 6)
-  # natural_series <- mcb_series_rmsse(
-  #   dt$dtb %>% filter(cluster == "natural"),
-  #   dt$dtb %>% filter(startsWith(cluster, "permute-natural")),
-  #   "Natural"
-  # )
-  # dev.off()
-  # which(names(natural_series$means) == "Natural")
+
+series_mcb <- function(dt) {
+  a <- dt %>% select(method, batch, rmsse) %>%
+    tidyr::nest(rmsse = -"method") %>%
+    mutate_at("rmsse", purrr::map, function(x){
+      x %>% arrange(batch) %>%
+        pull(rmsse) %>%
+        do.call(c, .)
+    })
   
-  # MCB Test based on hierarchy rmsse
-  pdf(sprintf("manuscript/figures/%s_natural_mcb_whole.pdf", path),width = 8, height = 6)
-  natural_hierarchy <- mcb_hierarchy_rmsse(
+  dat <- do.call(cbind, a$rmsse)
+  colnames(dat) <- a$method
+  dat
+}
+
+# natural vs two-level
+P1 <- function(dt, path){
+  a <- dt$dtb %>% filter(cluster %in% c("natural", "")) %>%
+    mutate(method = ifelse(cluster=="natural", "Natural", "Two-level")) %>%
+    select(method, rmsse, batch)
+  
+  b <- a %>% rowwise() %>% mutate(rmsse = mean(rmsse))
+  
+  pdf(sprintf("manuscript/figures/hierarchy_rmsse/%s/P1_natural_vs_twolevel_h%s.pdf", path, forecast_horizon))
+  b %>% tidyr::pivot_wider(names_from = "method", values_from = "rmsse") %>%
+    select(`Two-level`, Natural) %>%
+    tsutils::nemenyi(plottype = "vmcb")
+  dev.off()
+  
+  pdf(sprintf("manuscript/figures/series_rmsse/%s/P1_natural_vs_twolevel_h%s.pdf", path, forecast_horizon))
+  a %>% series_mcb() %>%
+    tsutils::nemenyi(plottype = "vmcb")
+  dev.off()
+  
+  P1_table[[path]] <<- b %>% group_by(method) %>%
+    summarise(rmsse = mean(rmsse))
+  
+  if (length(P1_table) == 2) {
+    P1_table <- P1_table[["tourism"]] %>%
+      mutate(dataset = "tourism") %>%
+      rbind(P1_table[["mortality"]] %>% mutate(dataset="mortality")) %>%
+      tidyr::pivot_wider(names_from = "dataset", values_from = "rmsse")
+    write.csv(P1_table, sprintf("manuscript/figures/hierarchy_rmsse/P1_rmsse_h%s.csv", forecast_horizon))
+  }
+}
+
+# natural vs its randomization
+P2 <- function(dt, path) {
+  # MCB Test based on single series rmsse
+  pdf(sprintf("manuscript/figures/series_rmsse/%s/P2_natural_vs_pn_h%s.pdf", path, forecast_horizon),
+      width = 8, height = 6)
+  natural_series <- mcb_series_rmsse(
     dt$dtb %>% filter(cluster == "natural"),
     dt$dtb %>% filter(startsWith(cluster, "permute-natural")),
     "Natural"
   )
   dev.off()
   
+  # MCB Test based on hierarchy rmsse
+  pdf(sprintf("manuscript/figures/hierarchy_rmsse/%s/P2_natural_vs_pn_h%s.pdf", path, forecast_horizon),
+      width = 8, height = 6)
+  natural_hierarchy <- mcb_hierarchy_rmsse(
+    dt$dtb %>% filter(cluster == "natural"),
+    dt$dtb %>% filter(startsWith(cluster, "permute-natural")),
+    "Natural"
+  )
+  dev.off()
+  rank <- which(names(natural_hierarchy$means) == "Natural")
+  rmsse_tbl <- P1_table[[path]]
   
-  # base, natural, cluster rmsse
+  P2_table[[path]] <<- c(rank, rmsse_tbl$rmsse[which(rmsse_tbl$method == "Natural")])
+  if (length(P2_table) == 2) {
+    data.frame(P2_table) %>%
+      write.csv(sprintf("manuscript/figures/hierarchy_rmsse/P2_rmsse_h%s.csv", forecast_horizon))
+  }
+}
+
+
+P3 <- function(dt, path) {
   bench_rmsse <- dt$dtb %>%
-    filter(!startsWith(cluster, "permute")) %>%
+    filter(!startsWith(cluster, "permute"), cluster != "average") %>%
     rowwise() %>%
     mutate(rmsse=mean(rmsse)) %>%
     select(representor, distance, cluster, batch, rmsse) %>%
     rbind(dt$base %>% mutate(representor = "", distance = "", cluster="base") %>%
             rowwise() %>% mutate(rmsse=mean(rmsse)))
   
-  
-  pdf(sprintf("manuscript/figures/%s_benchmark_mcb_whole.pdf", path),width = 8, height = 6, family = "Helvetica")
+  pdf(sprintf("manuscript/figures/hierarchy_rmsse/%s/P3_mcb_benchmarks_h%s.pdf", path, forecast_horizon), 
+      width = 8, height = 6)
   par(mex=1.1)
   bench_rmsse %>%
     rowwise() %>%
@@ -113,14 +169,6 @@ for (path in c("tourism", "mortality")) {
     select(-batch) %>%
     tsutils::nemenyi(plottype = "vmcb")
   dev.off()
-  
-  
-  clusters <- dt$dtb %>% select(cluster, distance, representor) %>%
-    filter(!startsWith(cluster, "permute-")) %>%
-    filter(distance != "") %>%
-    unique()
-  
-  # cluster
   
   best_ <- bench_rmsse %>%
     group_by(representor, distance, cluster) %>%
@@ -132,21 +180,22 @@ for (path in c("tourism", "mortality")) {
   
   best_name <- method_name(best_$representor[[1]], best_$distance[[1]], best_$cluster[[1]])
   
-  # pdf(sprintf("manuscript/figures/%s_cluster_mcb_single.pdf", path),width = 8, height = 6)
-  # cluster_series_rmsse <- mcb_series_rmsse(
-  #   dt$dtb %>% filter(representor == best_$representor[[1]],
-  #                     cluster == best_$cluster[[1]],
-  #                     distance == best_$distance[[1]]),
-  #   dt$dtb %>% filter(representor == best_$representor[[1]],
-  #                     startsWith(cluster, paste0("permute-", best_$cluster[[1]])),
-  #                     distance == best_$distance[[1]]),
-  #   best_name
-  # )
-  # dev.off()
-  # cluster_series_rmsse$means
+  pdf(sprintf("manuscript/figures/series_rmsse/%s/P3_cluster_vs_pc_h%s.pdf", path, forecast_horizon),
+      width = 8, height = 6)
+  cluster_series_rmsse <- mcb_series_rmsse(
+    dt$dtb %>% filter(representor == best_$representor[[1]],
+                      cluster == best_$cluster[[1]],
+                      distance == best_$distance[[1]]),
+    dt$dtb %>% filter(representor == best_$representor[[1]],
+                      startsWith(cluster, paste0("permute-", best_$cluster[[1]])),
+                      distance == best_$distance[[1]]),
+    best_name
+  )
+  dev.off()
   
   
-  pdf(sprintf("manuscript/figures/%s_cluster_mcb_whole.pdf", path),width = 8, height = 6)
+  pdf(sprintf("manuscript/figures/hierarchy_rmsse/%s/P3_cluster_vs_pc_h%s.pdf", path, forecast_horizon),
+      width = 8, height = 6)
   cluster_hierarchy_rmsse <- mcb_hierarchy_rmsse(
     dt$dtb %>% filter(representor == best_$representor[[1]],
                       cluster == best_$cluster[[1]],
@@ -158,102 +207,114 @@ for (path in c("tourism", "mortality")) {
   )
   dev.off()
   
+  
+  # calculate rmsse
   bench_rmsse <- bench_rmsse %>%
     rowwise() %>%
     mutate(method = method_name(representor, distance, cluster)) %>%
     select(method, batch, rmsse) %>%
     group_by(method) %>%
     summarise(rmsse = mean(rmsse) * 100) %>%
-    mutate(rmsse = round(rmsse, digits = 3)) %>%
-    arrange(rmsse)
+    mutate(rmsse = round(rmsse, digits = 3))
   
-  if (path == "tourism") {
-    rmsse_benchmarks <- bench_rmsse %>% rename(tourism = "rmsse")
-  } else {
-    rmsse_benchmarks <- bench_rmsse %>% 
-      rename(mortality = "rmsse") %>%
-      left_join(rmsse_benchmarks, by = "method")
-  }
-  rank_natural_tbl[[path]] <- c(
-    bench_rmsse$rmsse[which(bench_rmsse$method == "Natural")],
-    which(names(natural_hierarchy$means) == "Natural"))
-  rank_cluster_tbl[[path]] <- c(
-    bench_rmsse$rmsse[which(bench_rmsse$method == best_name)],
-    which(names(cluster_hierarchy_rmsse$means) == best_name))
+  P3_table[[path]] <<- bench_rmsse %>% mutate(dataset=path)
+  P3_rank[[path]] <<- c(which(names(cluster_hierarchy_rmsse$means) == best_name),
+                        P3_table[[path]]$rmsse[which(P3_table[[path]]$method == best_name)])
   
-  if (path == "mortality") {
-    # averaging
-    rank_average_tbl <- list()
-    all_rmsse3 <- NULL
-    for (batch in unique(dt$dtb$batch)) {
-      store_path <- sprintf("%s/%s/batch_%s.rds", path, "ets", batch)
-      data <- readRDS(store_path)
-      data_tibble <- nl2tibble(data$nl) %>% 
-        filter(representor != "")
-      
-      data_tibble$permute <- sapply(data_tibble$cluster, function(x){
-        if (!startsWith(x, "permute")) {
-          return (0)
-        }
-        x <- strsplit(x, "-")[[1]]
-        x <- x[length(x)]
-        as.integer(x)
-      })
-      data_tibble$cluster <- sapply(data_tibble$cluster, function(x){
-        if (!startsWith(x, "permute")) {
-          return (x)
-        }
-        split_x <- strsplit(x, "-")[[1]]
-        x <- stringi::stri_replace_all_fixed(x, "permute-", "")
-        x <- stringi::stri_replace_all_fixed(x, paste0("-", split_x[length(split_x)]), "")
-        x
-      })
-      
-      avg <- data_tibble %>% select(representor, cluster, distance, rf, permute) %>%
-        arrange(permute) %>%
-        group_by(permute) %>%
-        tidyr::nest(rf = -"permute") %>%
-        mutate_at("rf", purrr::map, function(x) {
-          sapply(x$rf, function(g) { g[["mint"]][1:forecast_horizon,,drop=FALSE] }, simplify = "array") %>%
-            apply(c(1,2), mean)
-        })
-      if (is.null(dim(data$tts))){
-        tts <- c(sum(data$tts), data$tts)
-        tts <- matrix(tts, nrow=1)
-      } else { 
-        tts <- cbind(rowSums(data$tts), data$tts)[1:forecast_horizon,,drop=FALSE]
-      }
-      bts <- cbind(rowSums(data$bts), data$bts)
-      
-      rmsses <- sapply(iterators::iter(avg$rf), function(f) {
-        sapply(1:NCOL(f), function(x){
-          metric.rmsse(tts[,x], f[,x], bts[,x])
-        }) %>% mean()
-      })
-      all_rmsse3 <- rbind(all_rmsse3, rmsses)
-    }
-    colnames(all_rmsse3) <- c("Average", 1:100)
+  if (length(P3_table) == 2) {
+    methods <- c("Base", "Two-level","Natural", "TS-HC-EUC", "TS-HC-DTW", "TS-ME-EUC", "TS-ME-DTW",
+                 "TSF-HC-EUC", "TSF-ME-EUC",
+                 "ER-HC-EUC", "ER-HC-DTW", "ER-ME-EUC", "ER-ME-DTW",
+                 "ERF-HC-EUC", "ERF-ME-EUC")
+    a <- do.call(rbind, P3_table) %>%
+      tidyr::pivot_wider(names_from = "dataset", values_from = "rmsse")
+    a[match(methods, a$method),] %>%
+      write.csv(sprintf("manuscript/figures/hierarchy_rmsse/P3_rmsse_h%s.csv", forecast_horizon))
     
-    pdf("manuscript/figures/mortality_average_mcb_whole.pdf", height = 6, width = 8)
-    test_ <- nemenyi(all_rmsse3, plottype = "vmcb", target = "Average")
-    dev.off()
-    rank_average_tbl[["mortality"]] <-
-      c(round(colMeans(all_rmsse3)[1]*100, digits=3), which(names(test_$means) == "Average"))
+    data.frame(P3_rank) %>%
+      write.csv(sprintf("manuscript/figures/hierarchy_rmsse/P3_rank_h%s.csv", forecast_horizon))
   }
 }
 
+P4 <- function(dt, path) {
+  
+  bench_rmsse <- dt$dtb %>%
+    filter(!startsWith(cluster, "permute")) %>%
+    rowwise() %>%
+    mutate(rmsse=mean(rmsse)) %>%
+    select(representor, distance, cluster, batch, rmsse) %>%
+    rbind(dt$base %>% mutate(representor = "", distance = "", cluster="base") %>%
+            rowwise() %>% mutate(rmsse=mean(rmsse))) %>%
+    rowwise() %>%
+    mutate(method = method_name(representor, distance, cluster)) %>%
+    select(method, batch, rmsse)
+  
+  P4_table[[path]] <<- bench_rmsse %>% group_by(method) %>%
+    summarise(rmsse = round(mean(rmsse) * 100, digits = 3))
+  
+  if (path == "mortality") {
+    pdf(sprintf("manuscript/figures/hierarchy_rmsse/%s/P4_average_vs_pa_h%s.pdf", path, forecast_horizon), height = 6, width = 8)
+      test_ <- mcb_hierarchy_rmsse(
+        dt$dtb %>% filter(representor == "", cluster == "average",distance == ""),
+        dt$dtb %>% filter(representor=="", distance=="", startsWith(cluster, "permute-average")),
+        "Average"
+      )
+    dev.off()
+    rmsse_ <- P4_table[[path]]$rmsse[which(P4_table[[path]]$method == "Average")]
+    P4_rank[[path]] <-
+      c(rmsse_, which(names(test_$means) == "Average"))
+    data.frame(P4_rank) %>% write.csv(sprintf("manuscript/figures/hierarchy_rmsse/P4_rank_h%s.csv", forecast_horizon))
+    
+    pdf(sprintf("manuscript/figures/series_rmsse/%s/P4_average_vs_pa_h%s.pdf", path, forecast_horizon), height = 6, width = 8)
+    test_ <- mcb_series_rmsse(
+      dt$dtb %>% filter(representor == "", cluster == "average",distance == ""),
+      dt$dtb %>% filter(representor=="", distance=="", startsWith(cluster, "permute-average")),
+      "Average"
+    )
+    dev.off()
+  }
+  
+  pdf(sprintf("manuscript/figures/hierarchy_rmsse/%s/P4_benchmarks_h%s.pdf", path, forecast_horizon), height = 6, width = 8)
+  bench_rmsse %>%  
+    tidyr::pivot_wider(names_from = "method", values_from = "rmsse") %>%
+    select(-batch) %>%
+    tsutils::nemenyi(plottype = "vmcb")
+  dev.off()
+  
 
-write.csv(rmsse_benchmarks, "manuscript/figures/cluster_rmsse.csv")
+  methods <- c("Base", "Two-level","Natural", "TS-HC-EUC", "TS-HC-DTW", "TS-ME-EUC", "TS-ME-DTW",
+               "TSF-HC-EUC", "TSF-ME-EUC",
+               "ER-HC-EUC", "ER-HC-DTW", "ER-ME-EUC", "ER-ME-DTW",
+               "ERF-HC-EUC", "ERF-ME-EUC", "Average")
+  P4_table[[path]] <<-
+    P4_table[[path]][match(methods, P4_table[[path]]$method),] %>%
+    mutate(dataset = path)
+  
+  if (length(P4_table) == 2) {
+    rbind(P4_table[[1]], P4_table[[2]]) %>%
+      tidyr::pivot_wider(names_from = "dataset", values_from = "rmsse") %>%
+      write.csv(sprintf("manuscript/figures/hierarchy_rmsse/P4_rmsse_h%s.csv", forecast_horizon))
+  }
+}
 
-rank_natural_tbl <- data.frame(rank_natural_tbl)
-row.names(rank_natural_tbl) <- c("RMSSE", "Rank")
-write.csv(rank_natural_tbl, "manuscript/figures/rank_natural.csv")
-
-rank_cluster_tbl <- data.frame(rank_cluster_tbl)
-row.names(rank_cluster_tbl) <- c("RMSSE", "Rank")
-write.csv(rank_cluster_tbl, "manuscript/figures/rank_cluster.csv")
-
-
-rank_average_tbl <- data.frame(rank_average_tbl)
-row.names(rank_average_tbl) <- c("RMSSE", "Rank")
-write.csv(rank_average_tbl, "manuscript/figures/rank_average.csv")
+for (forecast_horizon in c(1, 12)) {
+  P1_table <- list()
+  P2_table <- list()
+  P3_table <- list()
+  P3_rank <- list()
+  P4_table <- NULL
+  P4_rank <- list()
+  for (path in c("tourism", "mortality")) {
+    dt <- readRDS(sprintf("%s/ets/eval_%s.rds", path, forecast_horizon))
+    print("Part 1...")
+    P1(dt, path)
+    print("Part 2...")
+    P2(dt, path)
+    if (forecast_horizon == 1) {
+      print("Part 3...")
+      P3(dt, path)
+    }
+    print("Part 4...")
+    P4(dt, path)
+  }
+}

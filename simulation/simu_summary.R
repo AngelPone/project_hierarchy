@@ -57,10 +57,10 @@ test <- function(mat, name) {
 }
 
 # natural hierarchy vs its counterpart
-# pdf("manuscript/figures/simulation_permute_cluster.pdf")
+pdf("manuscript/figures/simulation_permute_cluster.pdf")
 natural_ <- evaluate_idx(best_hierarchy)
 natural_test <- test(cbind(natural_, evaluate_idx(permute_best)), "Cluster")
-# dev.off()
+dev.off()
 # 39
 
 # season
@@ -169,4 +169,4 @@ output$comb <- c(
   which(names(comb_test$means) == "Comb"),
   mean(comb_rmsse[,1])
 )
-data.frame(output) %>% write.csv("manuscript/simulation_ranktbl.csv")
+data.frame(output) %>% write.csv("manuscript/figures/simulation_ranktbl.csv")
