@@ -1,6 +1,6 @@
 args <- commandArgs(trailingOnly = TRUE)
 path <- args[[1]]
-bfmethod <- args[[2]]
+bfmethod <- "ets"
 
 set.seed(20231019)
 
@@ -12,9 +12,9 @@ n <- NROW(dt$S)
 m <- NCOL(dt$S)
 print(sprintf("%s dataset has %s series and %s bottom series", path, n, m))
 time_length <- NROW(dt$data)
-forecast_horizon <- 12
+forecast_horizon <- as.integer(args[[2]])
 frequency <- 12
-batch_length <- time_length - 96 - forecast_horizon + 11
+batch_length <- time_length - 96 - forecast_horizon
 
 REPRESENTORS <- c("ts-dr", "error-dr", "ts.features-dr", "error.features-dr")
 DISTANCES <- rep("euclidean", 4)
@@ -42,6 +42,7 @@ generate_randomization <- function(data, representor, distance, cluster, tbl, pe
   S <- tbl$S[which((tbl$representor == representor) & (tbl$cluster == cluster) & (tbl$distance == distance))]
   permute_S <- tbl$S[which((tbl$representor == representor) & (startsWith(tbl$cluster, paste0("permute-", cluster, "-"))) & (tbl$distance == distance))]
   if (length(permute_S) == 100) {
+    print("existing permutation, skip ...")
     return(data)
   }
   stopifnot(length(permute_S) == 0)
@@ -62,7 +63,7 @@ get_best_clustering <- function(path, batch_length, h) {
     cluster <- sapply(data$nl, function(x) {
       x$cluster
     })
-    idx <- which((!startsWith(cluster, "permute")) & (!startsWith(cluster, "random") & (!startsWith(cluster, "hcluster-random")) & (cluster != "natural") & (cluster != "")))
+    idx <- which((!startsWith(cluster, "permute") & (cluster != "natural") & (cluster != "")))
     stopifnot(length(idx) == 12)
     tts <- cbind(rowSums(data$tts), data$tts)
     bts <- cbind(rowSums(data$bts), data$bts)
@@ -76,19 +77,20 @@ get_best_clustering <- function(path, batch_length, h) {
       mutate(batch = batch)
     all_rmsse <- rbind(all_rmsse, tbl)
   }
-  all_rmsse %>% group_by(representor, distance, cluster) %>%
-    summarise(rmsse=mean(rmsse)) %>%
+  all_rmsse %>%
+    group_by(representor, distance, cluster) %>%
+    summarise(rmsse = mean(rmsse)) %>%
     arrange(rmsse)
 }
-
 print("Calculating best performing method ....")
-performing_sort <- get_best_clustering(path, batch_length, h=1)
-
+performing_sort <- get_best_clustering(path,
+  batch_length,
+  h = forecast_horizon
+)
 print("best performing method:")
-print(performing_sort[1,])
+print(performing_sort[1, ])
 
-
-new_permute <- lapply(1:100, function(x){
+new_permute <- lapply(1:100, function(x) {
   sample(m)
 })
 
@@ -102,7 +104,7 @@ for (batch in 0:batch_length) {
   natural_S <- tbl$S[[which(tbl$cluster == "natural")]]
   if (sum(startsWith(tbl$cluster, "permute-natural")) == 0) {
     for (i in 1:100) {
-      data <- add_nl(data, natural_S[,new_permute[[i]]], "", "", paste0("permute-natural-", i))
+      data <- add_nl(data, natural_S[, new_permute[[i]]], "", "", paste0("permute-natural-", i))
     }
   }
 
@@ -130,7 +132,7 @@ for (batch in 0:batch_length) {
     distance <- performing_sort$distance[[1]]
     cluster <- performing_sort$cluster[[1]]
     data <- generate_randomization(data, representor, distance, cluster, tbl, new_permute)
-    stopifnot(length(data$nl) == 214)
+    stopifnot((length(data$nl) - 14) %% 100 == 0)
   }
   saveRDS(data, store_path)
 }

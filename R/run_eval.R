@@ -12,7 +12,6 @@ print(sprintf("%s dataset has %s series and %s bottom series", path, n, m))
 time_length <- NROW(dt$data)
 forecast_horizon <- as.integer(args[[2]])
 frequency <- 12
-batch_length <- time_length - 96 + 12
 batch_length <- time_length - 96 - forecast_horizon
 
 metrics <- c("rmsse")

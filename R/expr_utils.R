@@ -155,12 +155,12 @@ nemenyi <- function (data, conf.level = 0.95, sort = c(TRUE, FALSE), plottype = 
              lwd = 3, col = cmp[1])
     }
     else {
-      polygon(rep(ranks.means[select], 4) + r.stat/2 * 
+      target_loc <- which(names(ranks.means) == target)
+      polygon(rep(ranks.means[target_loc], 4) + r.stat/2 * 
                 c(1, 1, -1, -1), c(0, rep(cols.number + 1, 2), 
                                    0), col = "gray90", border = NA)
       points(ranks.means, 1:cols.number, pch = 20, lwd = 0.5)
       if (cols.number > 30) {
-        target_loc <- which(names(ranks.means) == target)
         axis_at <- seq(1, 101, 20)
         idx_at <- which(abs(target_loc - axis_at) <= 5)
         if (length(idx_at) == 1) {
@@ -180,7 +180,7 @@ nemenyi <- function (data, conf.level = 0.95, sort = c(TRUE, FALSE), plottype = 
               rep(i, times = 2), type = "o", lwd = 1, col = pcol, 
               pch = 20)
       }
-      idx <- abs(ranks.means[select] - ranks.means) < r.stat
+      idx <- abs(ranks.means[target_loc] - ranks.means) < r.stat
       points(ranks.means[idx], (1:cols.number)[idx], pch = 20, 
              lwd = 0.5, col = cmp[1])
     }

@@ -139,9 +139,16 @@ P2 <- function(dt, path) {
   )
   dev.off()
   rank <- which(names(natural_hierarchy$means) == "Natural")
+  itl1 <- natural_hierarchy$means - natural_hierarchy$cd / 2
+  itl2 <- natural_hierarchy$means + natural_hierarchy$cd / 2
+  sig_better <- 
+    length(which(itl1 > itl2["Natural"]))
+  sig_worse <- 
+    length(which(itl2 < itl1["Natural"]))
   rmsse_tbl <- P1_table[[path]]
   
-  P2_table[[path]] <<- c(rank, rmsse_tbl$rmsse[which(rmsse_tbl$method == "Natural")])
+  P2_table[[path]] <<- c(rank, rmsse_tbl$rmsse[which(rmsse_tbl$method == "Natural")], 
+                         sig_better, sig_worse)
   if (length(P2_table) == 2) {
     data.frame(P2_table) %>%
       write.csv(sprintf("manuscript/figures/hierarchy_rmsse/P2_rmsse_h%s.csv", forecast_horizon))
@@ -217,9 +224,17 @@ P3 <- function(dt, path) {
     summarise(rmsse = mean(rmsse) * 100) %>%
     mutate(rmsse = round(rmsse, digits = 3))
   
+  itl1 <- cluster_hierarchy_rmsse$means - cluster_series_rmsse$cd / 2
+  itl2 <- cluster_hierarchy_rmsse$means + cluster_series_rmsse$cd / 2
+  sig_better <- 
+    which(itl1 > itl2[best_name])
+  sig_worse <-
+    which(itl2 < itl1[best_name])
   P3_table[[path]] <<- bench_rmsse %>% mutate(dataset=path)
   P3_rank[[path]] <<- c(which(names(cluster_hierarchy_rmsse$means) == best_name),
-                        P3_table[[path]]$rmsse[which(P3_table[[path]]$method == best_name)])
+                        P3_table[[path]]$rmsse[which(P3_table[[path]]$method == best_name)],
+                        length(sig_better),
+                        length(sig_worse))
   
   if (length(P3_table) == 2) {
     methods <- c("Base", "Two-level","Natural", "TS-HC-EUC", "TS-HC-DTW", "TS-ME-EUC", "TS-ME-DTW",
@@ -260,9 +275,16 @@ P4 <- function(dt, path) {
         "Average"
       )
     dev.off()
+    
+    itl1 <- test_$means - test_$cd / 2
+    itl2 <- test_$means + test_$cd / 2
+    sig_better <- 
+      which(itl1 > itl2["Average"])
+    sig_worse <- 
+      which(itl2 < itl1["Average"])
     rmsse_ <- P4_table[[path]]$rmsse[which(P4_table[[path]]$method == "Average")]
     P4_rank[[path]] <-
-      c(rmsse_, which(names(test_$means) == "Average"))
+      c(rmsse_, which(names(test_$means) == "Average"), length(sig_better), length(sig_worse))
     data.frame(P4_rank) %>% write.csv(sprintf("manuscript/figures/hierarchy_rmsse/P4_rank_h%s.csv", forecast_horizon))
     
     pdf(sprintf("manuscript/figures/series_rmsse/%s/P4_average_vs_pa_h%s.pdf", path, forecast_horizon), height = 6, width = 8)
@@ -305,16 +327,14 @@ for (forecast_horizon in c(1, 12)) {
   P4_table <- NULL
   P4_rank <- list()
   for (path in c("tourism", "mortality")) {
-    dt <- readRDS(sprintf("%s/ets/eval_%s.rds", path, forecast_horizon))
-    print("Part 1...")
-    P1(dt, path)
-    print("Part 2...")
-    P2(dt, path)
-    if (forecast_horizon == 1) {
+      dt <- readRDS(sprintf("%s/ets/eval_%s.rds", path, forecast_horizon))
+      print("Part 1...")
+      P1(dt, path)
+      print("Part 2...")
+      P2(dt, path)
       print("Part 3...")
       P3(dt, path)
-    }
-    print("Part 4...")
-    P4(dt, path)
+      print("Part 4...")
+      P4(dt, path)
   }
 }
