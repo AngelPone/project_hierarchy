@@ -1,4 +1,4 @@
-rm(list=ls())
+rm(list = ls())
 dt <- readRDS("simulation/simulation.rds")
 library(dplyr)
 source("R/metrics.R")
@@ -9,10 +9,12 @@ forecast_horizon <- 1
 rmsse <- function(pred, obs, hist) {
   obs <- cbind(rowSums(obs), obs)
   hist <- cbind(rowSums(hist), hist)
-  mean(sapply(1:NCOL(pred), function(x){
-    metric.rmsse(pred[1:forecast_horizon,x,drop=FALSE], 
-                 obs[1:forecast_horizon,x,drop=FALSE], 
-                 hist[,x,drop=FALSE])
+  mean(sapply(1:NCOL(pred), function(x) {
+    metric.rmsse(
+      pred[1:forecast_horizon, x, drop = FALSE],
+      obs[1:forecast_horizon, x, drop = FALSE],
+      hist[, x, drop = FALSE]
+    )
   }))
 }
 
@@ -31,9 +33,8 @@ trend_exis <- 305
 permute_trend_exis <- 306:405
 
 evaluate_idx <- function(idx) {
-  
   if (length(idx) > 1) {
-    output <- do.call(cbind, lapply(idx, function(x){
+    output <- do.call(cbind, lapply(idx, function(x) {
       evaluate_idx(x)
     }))
     return(output)
@@ -41,8 +42,8 @@ evaluate_idx <- function(idx) {
   sapply(1:500, function(x) {
     rmsse(
       dt$acc[[x]][[idx]],
-      t(dt$series[[x]][,133:144]),
-      t(dt$series[[x]][,1:132])
+      t(dt$series[[x]][, 133:144]),
+      t(dt$series[[x]][, 1:132])
     )
   })
 }
@@ -57,74 +58,80 @@ test <- function(mat, name) {
 }
 
 # natural hierarchy vs its counterpart
-pdf("manuscript/figures/simulation_permute_cluster.pdf")
+pdf("manuscript/figures/hierarchy_rmsse/simulation/P3_c_vs_pc.pdf", width = 8, height = 6)
 natural_ <- evaluate_idx(best_hierarchy)
 natural_test <- test(cbind(natural_, evaluate_idx(permute_best)), "Cluster")
 dev.off()
 # 39
-
-# season
-print("Evaluating Season ...")
-# season_ <- compare_random(season, permute_season)
+# 
+# # season
+# print("Evaluating Season ...")
+# # season_ <- compare_random(season, permute_season)
 season_ <- evaluate_idx(season)
-# test(season_, "Cluster-season")
-# 53
-
-# trend existence
-print("Evaluating trend existence ...")
-trend_exis_ <- evaluate_idx(trend_exis)
-# test(trned_exis_, "Cluster-trend2")
-# 48
-
-# trend direction
-print("Evaluating trend direction ...")
 trend_dir_ <- evaluate_idx(trend_dir)
-# test(trend_dir_, "Cluster-trend1")
-# 27
+trend_exis_ <- evaluate_idx(trend_exis)
+# # test(season_, "Cluster-season")
+# # 53
+# 
+# # trend existence
+# print("Evaluating trend existence ...")
+# 
+# # test(trned_exis_, "Cluster-trend2")
+# # 48
+# 
+# # trend direction
+# print("Evaluating trend direction ...")
+
+# # test(trend_dir_, "Cluster-trend1")
+# # 27
 
 two_level <- evaluate_idx(1)
 
 
 calculate_base <- function() {
-  if (file.exists("simulation/base.rds")){
-    return (sapply(readRDS("simulation/base.rds"), function(x){x}))
+  if (file.exists("simulation/base.rds")) {
+    return(sapply(readRDS("simulation/base.rds"), function(x) {
+      x
+    }))
   }
   library(forecast)
-  base_ <- lapply(1:500, function(x){
+  base_ <- lapply(1:500, function(x) {
     all_series <- t(rbind(colSums(dt$series[[x]]), dt$series[[x]]))
-    train <- all_series[1:132,]
-    test <- all_series[133:(133+forecast_horizon),,drop=FALSE]
-    fcasts <- lapply(iterators::iter(train, by="column"), function(y) {
+    train <- all_series[1:132, ]
+    test <- all_series[133:(133 + forecast_horizon), , drop = FALSE]
+    fcasts <- lapply(iterators::iter(train, by = "column"), function(y) {
       mdl <- ets(ts(y, frequency = 12))
       as.numeric(
-        forecast(mdl, h=forecast_horizon)$mean
+        forecast(mdl, h = forecast_horizon)$mean
       )
     }) %>% do.call(cbind, .)
     rmsse(fcasts, test, train)
   })
   saveRDS(base_, "simulation/base.rds")
-  return(sapply(base_, function(x){x}))
+  return(sapply(base_, function(x) {
+    x
+  }))
 }
 
-calculate_comb <- function(){
-  if (file.exists("simulation/comb.rds")){
-    return (readRDS("simulation/comb.rds"))
+calculate_comb <- function() {
+  if (file.exists("simulation/comb.rds")) {
+    return(readRDS("simulation/comb.rds"))
   }
   method_idx <- c(2, 303, 304, 305)
   all_rmsse <- NULL
   for (i in seq_along(dt$acc)) {
     print(i)
-    tts <- t(dt$series[[i]][,133:144])
-    bts <- t(dt$series[[i]][,1:132])
-    f_orig_ <- apply(simplify2array(dt$acc[[i]][method_idx]), c(1,2), mean)
+    tts <- t(dt$series[[i]][, 133:144])
+    bts <- t(dt$series[[i]][, 1:132])
+    f_orig_ <- apply(simplify2array(dt$acc[[i]][method_idx]), c(1, 2), mean)
     f_permu_ <- lapply(1:100, function(j) {
       apply(simplify2array(
         dt$acc[[i]][c(permute_best[j], permute_trend[j], permute_season[j], permute_trend_exis[j])]
-      ), c(1,2), mean)
+      ), c(1, 2), mean)
     })
-    
+
     rmsse_orig <- rmsse(f_orig_, tts, bts)
-    rmsse_permu_ <- sapply(iterators::iter(f_permu_), function(g){
+    rmsse_permu_ <- sapply(iterators::iter(f_permu_), function(g) {
       rmsse(g, tts, bts)
     })
     all_rmsse <- rbind(all_rmsse, c(rmsse_orig, rmsse_permu_))
@@ -136,7 +143,7 @@ calculate_comb <- function(){
 print("Evaluating comb ...")
 comb_rmsse <- calculate_comb()
 # # 51
-pdf("manuscript/figures/simulation_permu_comb.pdf")
+pdf("manuscript/figures/hierarchy_rmsse/simulation/P4.pdf", width = 8, height = 6)
 comb_test <- test(comb_rmsse, "Comb")
 dev.off()
 
@@ -152,10 +159,10 @@ clusters_tbl <- data.frame(
   rmsse = colMeans(cluster_mat) * 100
 ) %>%
   arrange(rmsse) %>%
-  mutate(rmsse = round(rmsse, digits=2)) %>%
-  write.csv("manuscript/figures/simulation_methods.csv")
+  mutate(rmsse = round(rmsse, digits = 2)) %>%
+  write.csv("manuscript/figures/hierarchy_rmsse/simulation/simulation_methods.csv")
 
-pdf("manuscript/figures/simulation_mcb.pdf")
+pdf("manuscript/figures/hierarchy_rmsse/simulation/P3_mcb.pdf", width = 6, height = 6)
 tsutils::nemenyi(cluster_mat, plottype = "vmcb")
 dev.off()
 
@@ -167,6 +174,6 @@ output$cluster <- c(
 
 output$comb <- c(
   which(names(comb_test$means) == "Comb"),
-  mean(comb_rmsse[,1])
+  mean(comb_rmsse[, 1])
 )
 data.frame(output) %>% write.csv("manuscript/figures/simulation_ranktbl.csv")

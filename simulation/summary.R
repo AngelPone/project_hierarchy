@@ -23,19 +23,19 @@ acc_mat <- do.call(cbind, acc$values) %>%
 
 
 visualizeSimSeries <- function(series) {
-  par(mfrow = c(3,2))
+  par(mfrow = c(3, 2))
   grpidx <- c("1", "2", "3", "4", "5", "6")
   for (i in 0:5) {
-    plot(ts(series[20*i+1,], frequency = 12), ylab = "series", main = paste0("Cluster", grpidx[i+1]))
+    plot(ts(series[20 * i + 1, ], frequency = 12), ylab = "series", main = paste0("Cluster", grpidx[i + 1]))
   }
-  par(mfrow = c(1,1))
+  par(mfrow = c(1, 1))
 }
 
 visualizeSimPCA <- function(series) {
-  pca <- prcomp(series, scale.=TRUE)
+  pca <- prcomp(series, scale. = TRUE)
   grpidx <- c("1", "2", "3", "4", "5", "6")
-  grps <- rep(grpidx, each=20)
-  ggplot(mapping = aes(x = pca$x[,1], y=pca$x[,2], color = grps, group=grps)) +
+  grps <- rep(grpidx, each = 20)
+  ggplot(mapping = aes(x = pca$x[, 1], y = pca$x[, 2], color = grps, group = grps)) +
     geom_point() +
     xlab("Principal Component 1") +
     ylab("Principal Component 2") +
@@ -54,5 +54,3 @@ dev.off()
 pdf("manuscript/figures/simu_example.pdf", width = 16, height = 8)
 visualizeSimSeries(dt$series[[1]])
 dev.off()
-
-
