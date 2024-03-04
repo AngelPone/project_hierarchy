@@ -63,7 +63,7 @@ natural_ <- evaluate_idx(best_hierarchy)
 natural_test <- test(cbind(natural_, evaluate_idx(permute_best)), "Cluster")
 dev.off()
 # 39
-# 
+#
 # # season
 # print("Evaluating Season ...")
 # # season_ <- compare_random(season, permute_season)
@@ -72,13 +72,13 @@ trend_dir_ <- evaluate_idx(trend_dir)
 trend_exis_ <- evaluate_idx(trend_exis)
 # # test(season_, "Cluster-season")
 # # 53
-# 
+#
 # # trend existence
 # print("Evaluating trend existence ...")
-# 
+#
 # # test(trned_exis_, "Cluster-trend2")
 # # 48
-# 
+#
 # # trend direction
 # print("Evaluating trend direction ...")
 
@@ -144,7 +144,7 @@ print("Evaluating comb ...")
 comb_rmsse <- calculate_comb()
 # # 51
 pdf("manuscript/figures/hierarchy_rmsse/simulation/P4.pdf", width = 8, height = 6)
-comb_test <- test(comb_rmsse, "Comb")
+comb_test <- test(comb_rmsse, "Combination")
 dev.off()
 
 
@@ -173,7 +173,7 @@ output$cluster <- c(
 )
 
 output$comb <- c(
-  which(names(comb_test$means) == "Comb"),
+  which(names(comb_test$means) == "Combination"),
   mean(comb_rmsse[, 1])
 )
 data.frame(output) %>% write.csv("manuscript/figures/simulation_ranktbl.csv")
