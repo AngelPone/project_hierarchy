@@ -60,30 +60,13 @@ test <- function(mat, name) {
 # natural hierarchy vs its counterpart
 pdf("manuscript/figures/hierarchy_rmsse/simulation/P3_c_vs_pc.pdf", width = 8, height = 6)
 natural_ <- evaluate_idx(best_hierarchy)
-natural_test <- test(cbind(natural_, evaluate_idx(permute_best)), "Cluster-predefined")
+natural_test <- test(cbind(natural_, evaluate_idx(permute_best)), "Cluster-trend-season")
 dev.off()
-# 39
-#
-# # season
-# print("Evaluating Season ...")
-# # season_ <- compare_random(season, permute_season)
+
+
 season_ <- evaluate_idx(season)
 trend_dir_ <- evaluate_idx(trend_dir)
 trend_exis_ <- evaluate_idx(trend_exis)
-# # test(season_, "Cluster-season")
-# # 53
-#
-# # trend existence
-# print("Evaluating trend existence ...")
-#
-# # test(trned_exis_, "Cluster-trend2")
-# # 48
-#
-# # trend direction
-# print("Evaluating trend direction ...")
-
-# # test(trend_dir_, "Cluster-trend1")
-# # 27
 
 two_level <- evaluate_idx(1)
 
@@ -153,9 +136,9 @@ base_ <- calculate_base()
 
 
 cluster_mat <- cbind(base_, two_level, natural_, trend_dir_, trend_exis_, season_)
-colnames(cluster_mat) <- c("Base", "Two-level", "Cluster-predefined", "Cluster-trend1", "Cluster-trend2", "Cluster-season")
+colnames(cluster_mat) <- c("Base", "Two-level", "Cluster-trend-season", "Cluster-trend1", "Cluster-trend2", "Cluster-season")
 clusters_tbl <- data.frame(
-  method = c("Base", "Two-level", "Cluster-predefined", "Cluster-trend1", "Cluster-trend2", "Cluster-season"),
+  method = c("Base", "Two-level", "Cluster-trend-season", "Cluster-trend1", "Cluster-trend2", "Cluster-season"),
   rmsse = colMeans(cluster_mat) * 100
 ) %>%
   arrange(rmsse) %>%
@@ -166,7 +149,7 @@ clusters_tbl <- data.frame(
 
 output <- list()
 output$cluster <- c(
-  which(names(natural_test$means) == "Cluster-predefined"),
+  which(names(natural_test$means) == "Cluster-trend-season"),
   mean(natural_)
 )
 
