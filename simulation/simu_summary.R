@@ -147,6 +147,10 @@ clusters_tbl <- data.frame(
 
   
 
+pdf("manuscript/figures/hierarchy_rmsse/simulation/P3_mcb.pdf", width = 6, height = 6)
+tsutils::nemenyi(cluster_mat, plottype = "vmcb")
+dev.off()
+
 output <- list()
 output$cluster <- c(
   which(names(natural_test$means) == "Cluster-trend-season"),

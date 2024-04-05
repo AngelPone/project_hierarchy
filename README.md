@@ -9,12 +9,10 @@ Run the following code to simulate time series and generate reconciliation resul
 
 ```shell
 Rscript simulation/simu.R
-Rscript simulation/simu2.R
-Rscript simulation/summary.R 1
-Rscript simulation/summary.R 2
+Rscript simulation/simu_summary.R
 ```
 
-The first two lines of code will create `simulation1.rds` and `simulation2.rds` file in `simulation` folder. The third and fourth lines of code will generate figures `manuscript/figures/simu*.pdf`, which will be used in the simulation section of the paper.
+The first line of code will create `simulation.rds` file in `simulation` folder. The second line of code will generate figures `manuscript/figures/simu*.pdf`, which will be used in the simulation section of the paper.
 
 
 ## Empirical studies
