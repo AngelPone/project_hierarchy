@@ -59,6 +59,7 @@ test <- function(mat, name) {
 
 # natural hierarchy vs its counterpart
 pdf("manuscript/figures/hierarchy_rmsse/simulation/P3_c_vs_pc.pdf", width = 8, height = 6)
+par(mar=c(4,14,3,2))
 natural_ <- evaluate_idx(best_hierarchy)
 natural_test <- test(cbind(natural_, evaluate_idx(permute_best)), "Cluster-trend-season")
 dev.off()
