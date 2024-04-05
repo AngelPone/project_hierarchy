@@ -148,7 +148,7 @@ clusters_tbl <- data.frame(
 
   
 
-pdf("manuscript/figures/hierarchy_rmsse/simulation/P3_mcb.pdf", width = 6, height = 6)
+pdf("manuscript/figures/hierarchy_rmsse/simulation/P3_mcb.pdf", width = 8, height = 4)
 tsutils::nemenyi(cluster_mat, plottype = "vmcb")
 dev.off()
 
