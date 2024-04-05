@@ -4,7 +4,6 @@ library(ggplot2)
 library(Matrix)
 library(tsutils)
 
-forecast_horizon <- 1
 source("R/metrics.R")
 source("R/expr_utils.R")
 
@@ -18,8 +17,8 @@ method_name <- function(representor, distance, cluster) {
   ), "")
   distance <- ifelse(distance == "", "",
     switch(distance,
-      euclidean = "-EUC",
-      dtw = "-DTW"
+      euclidean = "EUC",
+      dtw = "DTW"
     )
   )
   cluster <- strsplit(cluster, "-")[[1]][1]
@@ -27,14 +26,14 @@ method_name <- function(representor, distance, cluster) {
     !is.na(cluster),
     switch(cluster,
       natural = "Natural",
-      Kmedoids = "ME",
-      hcluster = "HC",
+      Kmedoids = "-ME",
+      hcluster = "-HC",
       base = "Base",
       "average" = "Combination"
     ),
     "Two-level"
   )
-  paste0(representor, cluster, distance)
+  paste0(representor, distance, cluster)
 }
 
 
@@ -152,6 +151,7 @@ P2 <- function(dt, path) {
   pdf(sprintf("manuscript/figures/series_rmsse/%s/P2_natural_vs_pn_h%s.pdf", path, forecast_horizon),
     width = 8, height = 6
   )
+  par(mar=c(4,14,3,2))
   natural_series <- mcb_series_rmsse(
     dt$dtb %>% filter(cluster == "natural"),
     dt$dtb %>% filter(startsWith(cluster, "permute-natural")),
@@ -163,6 +163,7 @@ P2 <- function(dt, path) {
   pdf(sprintf("manuscript/figures/hierarchy_rmsse/%s/P2_natural_vs_pn_h%s.pdf", path, forecast_horizon),
     width = 8, height = 6
   )
+  par(mar=c(4,14,3,2))
   natural_hierarchy <- mcb_hierarchy_rmsse(
     dt$dtb %>% filter(cluster == "natural"),
     dt$dtb %>% filter(startsWith(cluster, "permute-natural")),
@@ -213,7 +214,7 @@ P3 <- function(dt, path) {
 
   best_ <- bench_rmsse %>%
     group_by(representor, distance, cluster) %>%
-    summarise(rmsse = mean(rmsse) * 100, .groups = "drop") %>%
+    summarise(rmsse = mean(rmsse), .groups = "drop") %>%
     filter(representor != "") %>%
     arrange(rmsse)
 
@@ -243,6 +244,7 @@ P3 <- function(dt, path) {
   pdf(sprintf("manuscript/figures/hierarchy_rmsse/%s/P3_cluster_vs_pc_h%s.pdf", path, forecast_horizon),
     width = 8, height = 6
   )
+  par(mar=c(4,14,3,2))
   cluster_hierarchy_rmsse <- mcb_hierarchy_rmsse(
     dt$dtb %>% filter(
       representor == best_$representor[[1]],
@@ -265,8 +267,8 @@ P3 <- function(dt, path) {
     mutate(method = method_name(representor, distance, cluster)) %>%
     select(method, batch, rmsse) %>%
     group_by(method) %>%
-    summarise(rmsse = mean(rmsse) * 100) %>%
-    mutate(rmsse = round(rmsse, digits = 3))
+    summarise(rmsse = mean(rmsse)) %>%
+    mutate(rmsse = round(rmsse, digits = 4))
 
   itl1 <- cluster_hierarchy_rmsse$means - cluster_hierarchy_rmsse$cd / 2
   itl2 <- cluster_hierarchy_rmsse$means + cluster_hierarchy_rmsse$cd / 2
@@ -284,11 +286,10 @@ P3 <- function(dt, path) {
 
   if (length(P3_table) == 2) {
     methods <- c(
-      "Base", "Two-level", "Natural", "TS-HC-EUC", "TS-HC-DTW", "TS-ME-EUC", "TS-ME-DTW",
-      "TSF-HC-EUC", "TSF-ME-EUC",
-      "ER-HC-EUC", "ER-HC-DTW", "ER-ME-EUC", "ER-ME-DTW",
-      "ERF-HC-EUC", "ERF-ME-EUC"
-    )
+      "Base", "Two-level", "Natural", 
+      "TS-EUC-ME", "ER-EUC-ME", "TSF-EUC-ME", "ERF-EUC-ME",
+      "TS-EUC-HC", "ER-EUC-HC", "TSF-EUC-HC", "ERF-EUC-HC",
+      "TS-DTW-ME", "TS-DTW-HC", "ER-DTW-ME", "ER-DTW-HC")
     a <- do.call(rbind, P3_table) %>%
       tidyr::pivot_wider(names_from = "dataset", values_from = "rmsse")
     a[match(methods, a$method), ] %>%
@@ -313,7 +314,7 @@ P4 <- function(dt, path) {
 
   P4_table[[path]] <<- bench_rmsse %>%
     group_by(method) %>%
-    summarise(rmsse = round(mean(rmsse) * 100, digits = 3))
+    summarise(rmsse = round(mean(rmsse), digits = 4))
 
   if (path == "mortality") {
     pdf(sprintf("manuscript/figures/hierarchy_rmsse/%s/P4_average_vs_pa_h%s.pdf", path, forecast_horizon), height = 6, width = 8)
@@ -335,13 +336,13 @@ P4 <- function(dt, path) {
       c(rmsse_, which(names(test_$means) == "Combination"), length(sig_better), length(sig_worse))
     data.frame(P4_rank) %>% write.csv(sprintf("manuscript/figures/hierarchy_rmsse/P4_rank_h%s.csv", forecast_horizon))
 
-    pdf(sprintf("manuscript/figures/series_rmsse/%s/P4_average_vs_pa_h%s.pdf", path, forecast_horizon), height = 6, width = 8)
-    test_ <- mcb_series_rmsse(
-      dt$dtb %>% filter(representor == "", cluster == "average", distance == ""),
-      dt$dtb %>% filter(representor == "", distance == "", startsWith(cluster, "permute-average")),
-      "Combination"
-    )
-    dev.off()
+    # pdf(sprintf("manuscript/figures/series_rmsse/%s/P4_average_vs_pa_h%s.pdf", path, forecast_horizon), height = 6, width = 8)
+    # test_ <- mcb_series_rmsse(
+    #   dt$dtb %>% filter(representor == "", cluster == "average", distance == ""),
+    #   dt$dtb %>% filter(representor == "", distance == "", startsWith(cluster, "permute-average")),
+    #   "Combination"
+    # )
+    # dev.off()
   }
 
   pdf(sprintf("manuscript/figures/hierarchy_rmsse/%s/P4_benchmarks_h%s.pdf", path, forecast_horizon), height = 6, width = 8)
@@ -353,10 +354,11 @@ P4 <- function(dt, path) {
 
 
   methods <- c(
-    "Base", "Two-level", "Natural", "TS-HC-EUC", "TS-HC-DTW", "TS-ME-EUC", "TS-ME-DTW",
-    "TSF-HC-EUC", "TSF-ME-EUC",
-    "ER-HC-EUC", "ER-HC-DTW", "ER-ME-EUC", "ER-ME-DTW",
-    "ERF-HC-EUC", "ERF-ME-EUC", "Combination"
+    "Base", "Two-level", "Natural", 
+    "TS-EUC-ME", "ER-EUC-ME", "TSF-EUC-ME", "ERF-EUC-ME",
+    "TS-EUC-HC", "ER-EUC-HC", "TSF-EUC-HC", "ERF-EUC-HC",
+    "TS-DTW-ME", "TS-DTW-HC", "ER-DTW-ME", "ER-DTW-HC",
+     "Combination"
   )
   P4_table[[path]] <<-
     P4_table[[path]][match(methods, P4_table[[path]]$method), ] %>%
@@ -369,7 +371,7 @@ P4 <- function(dt, path) {
   }
 }
 
-for (forecast_horizon in c(1, 12)) {
+for (forecast_horizon in c(12)) {
   P1_table <- list()
   P2_table <- list()
   P3_table <- list()
@@ -378,13 +380,13 @@ for (forecast_horizon in c(1, 12)) {
   P4_rank <- list()
   for (path in c("tourism", "mortality")) {
     dt <- readRDS(sprintf("%s/ets/eval_%s.rds", path, forecast_horizon))
-    # print("Part 1...")
-    # P1(dt, path)
-    # print("Part 2...")
-    # P2(dt, path)
-    # print("Part 3...")
-    # P3(dt, path)
-    # print("Part 4...")
+    print("Part 1...")
+    P1(dt, path)
+    print("Part 2...")
+    P2(dt, path)
+    print("Part 3...")
+    P3(dt, path)
+    print("Part 4...")
     P4(dt, path)
   }
 }

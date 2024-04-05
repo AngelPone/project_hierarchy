@@ -173,7 +173,7 @@ nemenyi <- function (data, conf.level = 0.95, sort = c(TRUE, FALSE), plottype = 
                               sprintf("%1.2f", round(ranks.means[axis_at], 2)))
       }
       axis(2, at = (1:cols.number)[-axis_at], labels = FALSE)
-      axis(2, at = axis_at, labels = axis_labels, las = 2, col.ticks="red", cex.axis=0.8)
+      axis(2, at = axis_at, labels = axis_labels, las = 2, col.ticks="red", cex.axis=1.5)
       axis(1)
       for (i in 1:cols.number) {
         lines(ranks.means[i] + c(-1, 1) * 0.5 * r.stat, 
@@ -222,3 +222,87 @@ output_pre <- function(output) {
 
 
 
+method_name <- function(representor, distance, cluster) {
+  if (startsWith(cluster, "permute")) {
+    spl <- strsplit(cluster, "-")[[1]]
+    return (spl[length(spl)])
+  }
+  representor <- strsplit(representor, "-")[[1]][1]
+  representor <- ifelse(!is.na(representor), switch(representor,
+                                                    error = "ER-",
+                                                    error.features = "ERF-",
+                                                    ts = "TS-",
+                                                    ts.features = "TSF-"
+  ), "")
+  distance <- ifelse(distance == "", "",
+                     switch(distance,
+                            euclidean = "EUC",
+                            dtw = "DTW"
+                     )
+  )
+  cluster <- strsplit(cluster, "-")[[1]][1]
+  cluster <- ifelse(
+    !is.na(cluster),
+    switch(cluster,
+           natural = "Natural",
+           Kmedoids = "-ME",
+           hcluster = "-HC",
+           base = "Base",
+           "average" = "Combination"
+    ),
+    "Two-level"
+  )
+  paste0(representor, distance, cluster)
+}
+
+
+
+mcb_ <- function(orig, type, plot_type, target,
+                 file_path, mar = NULL, conf.level) {
+  orig_ <- orig %>%
+    select(method, rmsse, batch) %>%
+    tidyr::nest(rmsse = -c("method")) %>%
+    mutate_at("rmsse", purrr::map, function(g) {
+      g <- g %>% arrange(batch)
+      if (type == "hierarchy") {
+        return(list(sapply(g$rmsse, mean)))
+      } else {
+        return(list(do.call(c, g$rmsse)))
+      }
+    }) %>%
+    tidyr::unnest(rmsse)
+  
+  rmsse <- do.call(cbind, orig_$rmsse)
+  colnames(rmsse) <- orig_$method
+  pdf(file_path, width=8, height = 6)
+  if (plot_type == "custom") {
+    stopifnot(!is.null(mar))
+    par(mar = mar)
+    nemenyi(rmsse, plottype = "vmcb", target = target, conf.level = conf.level)
+  }
+  if (plot_type == "orig") {
+    tsutils::nemenyi(rmsse, plottype = "vmcb", conf.level = conf.level)
+  }
+  dev.off()
+}
+mcb_series_rmsse <- function(orig, rand, name) {
+  orig_rmsse <- orig %>%
+    arrange(batch) %>%
+    pull(rmsse) %>%
+    do.call(c, .)
+  rand_rmsse <-
+    rand %>%
+    arrange(batch, cluster) %>%
+    select(cluster, rmsse, batch) %>%
+    tidyr::nest(rmsse = -"cluster") %>%
+    mutate_at("rmsse", purrr::map, function(g) {
+      g <- g %>% arrange(batch)
+      list(do.call(c, g$rmsse))
+    }) %>%
+    tidyr::unnest(rmsse) %>%
+    pull(rmsse) %>%
+    do.call(cbind, .)
+  all_rmsse <- cbind(orig_rmsse, rand_rmsse)
+  colnames(all_rmsse) <- c(name, 1:100)
+  nemenyi(all_rmsse, plottype = "vmcb", target = name)
+}

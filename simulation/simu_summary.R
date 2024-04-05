@@ -60,7 +60,7 @@ test <- function(mat, name) {
 # natural hierarchy vs its counterpart
 pdf("manuscript/figures/hierarchy_rmsse/simulation/P3_c_vs_pc.pdf", width = 8, height = 6)
 natural_ <- evaluate_idx(best_hierarchy)
-natural_test <- test(cbind(natural_, evaluate_idx(permute_best)), "Cluster")
+natural_test <- test(cbind(natural_, evaluate_idx(permute_best)), "Cluster-predefined")
 dev.off()
 # 39
 #
@@ -153,22 +153,20 @@ base_ <- calculate_base()
 
 
 cluster_mat <- cbind(base_, two_level, natural_, trend_dir_, trend_exis_, season_)
-colnames(cluster_mat) <- c("Base", "Two-level", "Cluster", "Cluster-trend1", "Cluster-trend2", "Cluster-season")
+colnames(cluster_mat) <- c("Base", "Two-level", "Cluster-predefined", "Cluster-trend1", "Cluster-trend2", "Cluster-season")
 clusters_tbl <- data.frame(
-  method = c("Base", "Two-level", "Cluster", "Cluster-trend1", "Cluster-trend2", "Cluster-season"),
+  method = c("Base", "Two-level", "Cluster-predefined", "Cluster-trend1", "Cluster-trend2", "Cluster-season"),
   rmsse = colMeans(cluster_mat) * 100
 ) %>%
   arrange(rmsse) %>%
   mutate(rmsse = round(rmsse, digits = 2)) %>%
   write.csv("manuscript/figures/hierarchy_rmsse/simulation/simulation_methods.csv")
 
-pdf("manuscript/figures/hierarchy_rmsse/simulation/P3_mcb.pdf", width = 6, height = 6)
-tsutils::nemenyi(cluster_mat, plottype = "vmcb")
-dev.off()
+  
 
 output <- list()
 output$cluster <- c(
-  which(names(natural_test$means) == "Cluster"),
+  which(names(natural_test$means) == "Cluster-predefined"),
   mean(natural_)
 )
 
