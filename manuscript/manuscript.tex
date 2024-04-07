@@ -3,7 +3,9 @@
 % \usepackage{natbib}
 \usepackage{amsfonts,amsmath,bbm,bm,xcolor,booktabs,hyperref,amsthm}
 \usepackage{geometry}
+\usepackage{todonotes}
 \usepackage{hyperref}
+\usepackage{ulem}
 \usepackage{subfig}
 \geometry{a4paper,scale=0.8}
 \usepackage{setspace}
@@ -41,7 +43,7 @@
 \begin{frontmatter}
 
   %\title{On the performance of hierarchy construction: impacts of structure and clustering}
-\title{Augmenting hierarchical time series through clustering: \\Is there an optimal way for forecasting?}
+\title{Constructing hierarchical time series through clustering: \\Is there an optimal way for forecasting?}
 
 
 
@@ -56,7 +58,9 @@
 
   \begin{abstract}
 
-    Forecast reconciliation has attracted significant research interest in recent years, with most studies relying on pre-defined hierarchies constructed with time series metadata. With the goal of improving forecast accuracy in mind, we extend and contribute to the emerging research on the clustering-based reconciliation method by proposing a novel framework for hierarchy construction. This framework offers three approaches: cluster hierarchies, random hierarchies, and combination hierarchies. Utilizing the proposed approaches, we investigate the individual contributions of two primary factors, namely ``grouping'' and ``structure'', to the performance of forecast reconciliation.  Through a simulation study and experiments on two real-world datasets, we demonstrate the practical efficacy of different hierarchy construction approaches. Our findings provide new insights into the dynamics between ``grouping'' and ``structure'', which lead to an improved understanding of forecast reconciliation.\\
+    Forecast reconciliation has attracted significant research interest in recent years, with most studies taking the hierarchy of time series as given. We extend existing work that uses time series clustering to construct hierarchies, with the goal of improving forecast accuracy, in three ways. First, we investigate multiple approaches to clustering, including not only different clustering algorithms, but also the way time series are represented and how distance between time series is defined. We find that cluster-based hierarchies lead to improvements in forecast accuracy relative to two-level hierarchies. Second, we devise an approach based on random permutation of hierarchies, keeping the structure of the hierarchy fixed, while time series are randomly allocated to clusters. In doing so, we find that improvements in forecast accuracy that accrue from using clustering do not arise from grouping together similar series but from the structure of the hierarchy. Third, we propose an approach based on averaging forecasts across hierarchies constructed using different clustering methods, that is shown to outperform any single clustering method. All analysis is carried out on two benchmark datasets and a simulated dataset. Our findings provide new insights into the role of hierarchy construction in forecast reconciliation and offer valuable guidance on forecasting practice. \\
+    
+    %the dynamics between ``grouping'' and ``structure'', which lead to an improved understanding of forecast reconciliation.\\
 
   \end{abstract}
 
@@ -76,10 +80,12 @@
 
 \section{Introduction}
 
-Applications where some variables are aggregates of one another, or so-called \textit{hierarchical time series (HTS)}, are found in many forecasting problems ranging from supply chain management (\citealp{syntetosSupplyChainForecasting2016}) to tourism planning (\citealp{kourentzesCrosstemporalCoherentForecasts2019}), electrical load forecasting (\citealp{jeonProbabilisticForecastReconciliation2019}), and retail demand forecasting (\citealp{makridakisM5AccuracyCompetition2022}). In recent decades, there has been an increasing interest in hierarchical forecasting, primarily driven by the success of the optimal reconciliation framework (\citealp{hyndmanOptimalCombinationForecasts2011,wickramasuriyaOptimalForecastReconciliation2019, panagiotelisProbabilisticForecastReconciliation2023}). The original motivation for forecast reconciliation was to ensure forecasts are \textit{coherent}, that is they respect the aggregation constraints implied by the hierarchical structure. Coherent forecasts faciliate aligned decisions by agents acting upon different variables within the hierarchy. For example, consider a retail setting, where a warehouse manager supplies stock to individual store managers within their region. Forecasts could be incoherent when the warehouse manager forecasts low total demand while store managers forecast high demand, leading to supply shortages. Numerous case studies in the literature demonstrate that reconciliation approaches not only yield coherent forecasts but also enhance overall forecast performance (\citealp{AthanasopoulosForecastReconciliationReview2023}).
+
+
+Applications where some variables are aggregates of one another, or so-called \textit{hierarchical time series (HTS)}, are found in many forecasting problems ranging from supply chain management (\citealp{syntetosSupplyChainForecasting2016}) to tourism planning (\citealp{kourentzesCrosstemporalCoherentForecasts2019}), electrical load forecasting (\citealp{jeonProbabilisticForecastReconciliation2019}), and retail demand forecasting (\citealp{makridakisM5AccuracyCompetition2022}). In recent decades, there has been an increasing interest in hierarchical forecasting, primarily driven by the success of the optimal reconciliation framework (\citealp{hyndmanOptimalCombinationForecasts2011,wickramasuriyaOptimalForecastReconciliation2019, panagiotelisProbabilisticForecastReconciliation2023}). The original motivation for forecast reconciliation was to ensure forecasts are \textit{coherent}, that is they respect the aggregation constraints implied by the hierarchical structure. Coherent forecasts facilitate aligned decisions by agents acting upon different variables within the hierarchy. For example, consider a retail setting, where a warehouse manager supplies stock to individual store managers within their region. Forecasts could be incoherent when the warehouse manager forecasts low total demand while store managers forecast high demand, leading to supply shortages. Numerous case studies in the literature demonstrate that reconciliation approaches not only yield coherent forecasts but also enhance overall forecast performance (\citealp{AthanasopoulosForecastReconciliationReview2023}).
 
 %The primary objective of hierarchical forecasting is to produce coherent forecasts for the series within a given HTS, which we refer to as \textit{original hierarchy}, ensuring that decision-makers at different levels of the hierarchy can analyze and make informed decisions based on aligned expectations for the future.
-A limitation in the overwhelming majority of the forecast reconciliation studies is that the structure of the hierarchy is taken as \textit{given}. This structure usually includes \textit{bottom level series}, an overall aggregate or \textit{top level series}, with various aggregation schemes used to construct \textit{middle levels series}. Typically, middle levels are formed according to inherent attributes of the bottom-level series, such as geographical location, gender, product category, travel purpose, and others. We refer to this type of structure as the \textit{natural hierarchy}. While in some forecasting applications, decisions must be made with respect to the natural hierarchy, in other settings there might be some flexibility in determining how bottom levels are aggregated into middle levels. It should be noted that,  very little attention has been paid to whether middle level series can be constructed in a way that leads to further improvements in forecast accuracy relative to a given natural hierarchy. To the best of our knowledge, only \cite{pangHierarchicalElectricityTime2018}, \cite{liForecastReconciliationApproach2019}, \cite{pangHierarchicalElectricityTime2022}, and \cite{matteraImprovingOutofSampleForecasts2023} have attempted to \textit{construct} middle level series in a data-driven way which ultimately improved forecast accuracy. All three of these works use time series clustering to construct hierarchies in a manner that is somewhat ad hoc. Our work conducts a more thorough investigation of issues faced when  constructing hierarchical structures in forecasting reconciliation. In particular, we address the following four research questions:%via time series clustering. %We also assess and disentangle the impact of 
+A limitation in the overwhelming majority of forecast reconciliation studies is that the structure of the hierarchy is taken as \textit{given}. This structure usually includes \textit{bottom level series}, an overall aggregate or \textit{top level series}, with various aggregation schemes used to construct \textit{middle level series}. Typically, middle levels are formed according to inherent attributes of the bottom-level series, such as geographical location, gender, product category, travel purpose, and others. We refer to this type of structure as the \textit{natural hierarchy}. While in some forecasting applications, decisions must be made with respect to the natural hierarchy, in other settings there might be some flexibility in determining how bottom levels are aggregated into middle levels. Moreover, a predefined natural hierarchy may not always exist in hierarchical settings, underscoring the importance of a hierarchical construction framework for forecasting purposes. It should be noted that very little attention has been paid to whether middle level series can be constructed in a way that leads to further improvements in forecast accuracy relative to a given natural hierarchy. To the best of our knowledge, only \cite{pangHierarchicalElectricityTime2018}, \cite{liForecastReconciliationApproach2019}, \cite{pangHierarchicalElectricityTime2022}, and \cite{matteraImprovingOutofSampleForecasts2023} have attempted to \textit{construct} middle level series in a data-driven way which ultimately improved forecast accuracy. However, all of these works use time series clustering to construct hierarchies in a manner that is somewhat ad hoc. Our work conducts a more thorough investigation of issues faced when  constructing hierarchical structures in forecast reconciliation. In particular, we address the following three research questions:%via time series clustering. %We also assess and disentangle the impact of 
 
 
 
@@ -87,29 +93,32 @@ A limitation in the overwhelming majority of the forecast reconciliation studies
 
 
 
-\begin{researchquestion}
-In terms of forecast performance, is the natural hierarchy better than a two-level hierarchy (consisting of only top and bottom time series)? 
+\begin{researchquestion} In terms of forecast performance, can the use of middle level series lead to improvement compared to a two-level hierarchy (consisting of only top and bottom time series)? If so, is it possible to construct hierarchies in a data-driven way that leads to further improvements in forecast accuracy?
+
+%In terms of forecast performance, is the natural hierarchy better than a two-level hierarchy (consisting of only top and bottom time series)? 
 %In terms of forecast performance, does the natural hierarchy outperform a two-level hierarchy of only top and bottom time series?
 \end{researchquestion}
+%\begin{researchquestion}
+%    If the use of middle level series in the ``natural'' hierarchy can lead to improvement in forecast accuracy, is it possible to construct hierarchies in a data-driven way that leads to further improvements in forecast accuracy?
+%\end{researchquestion}
+
+
 
 %Two observations have been consistently demonstrated in empirical studies on forecast reconciliation. First, the accuracy of base forecasts, which are influenced by the individual time series characteristics within the hierarchy, critically affects the overall performance of reconciliation. For instance, \cite{panagiotelisForecastReconciliationGeometric2021} show that greater performance improvement can be achieved when bias correction for base forecasts is involved. 
 %Under the reconciliation framework, improvements in accuracy for some series often come at the expense of others (see \citealp{pritulargaStochasticCoherencyForecast2021}).
-To investigate this question, we consider two widely used empirical HTS datasets; the first is Australian tourism demand, the second, cause-of-death mortality data.  Throughout the paper, all evaluations are carried out using the series common to all hierarchies; namely the top and bottom level series. In both datasets, we find that the natural hierarchy outperforms the two-level hierarchy, leading to our next research question:
-\begin{researchquestion}
-    If the use of middle level series in the ``natural'' hierarchy can lead to improvement in forecast accuracy, is it possible to construct hierarchies in a data-driven way that leads to further improvements in forecast accuracy?
-\end{researchquestion}
+To investigate these questions, we consider two widely used empirical HTS datasets; the first is Australian tourism demand, the second, cause-of-death mortality data.  Throughout the paper, all evaluations are carried out using the series common to all hierarchies; namely the top and bottom level series. In both datasets, we find that the natural hierarchy outperforms the two-level hierarchy, and data-driven hierarchy via clustering can further improve forecast performance compared to natural hierarchy.
 
-The rationale behind the data-driven approach lies in grouping time series with similar patterns together, thereby creating middle-level series with enhanced signals and consequently, improved forecastability. Such arguments have been put forward by  \cite{pangHierarchicalElectricityTime2018}, \cite{liForecastReconciliationApproach2019}, \cite{pangHierarchicalElectricityTime2022}, and \cite{matteraImprovingOutofSampleForecasts2023}. However, these studies for the most part focus on a small number of (in some cases, a single) clustering techniques. In this paper, we take a more systematic approach by clustering time series using different representations (the original time series, forecast errors, features of both), different distance metrics (Euclidean, dynamic time warping), and different clustering paradigms ($k$-medioids, hierarchical). Using both empirical datasets, as well as a simulation study, we find evidence that constructing hierarchies via clustering can lead to improved forecasting performance, although the optimal clustering method depends on the dataset as well as the base forecasting and reconciliation method.
+The rationale behind the data-driven approach lies in grouping time series with similar patterns together, thereby creating middle-level series with enhanced signals and consequently, improved forecastability. Such arguments have been put forward by  \cite{pangHierarchicalElectricityTime2018}, \cite{liForecastReconciliationApproach2019}, \cite{pangHierarchicalElectricityTime2022}, and \cite{matteraImprovingOutofSampleForecasts2023}. They all demonstrate superior forecast performance from hierarchies constructed via clustering, relative to the natural hierarchy or the two-level hierarchy. However, these studies for the most part focus on a small number of (in some cases, a single) clustering techniques. In this paper, we take a more systematic approach by clustering time series using different representations (the original time series, forecast errors, features of both), different distance metrics (Euclidean, dynamic time warping), and different clustering paradigms ($k$-medioids, hierarchical). The models used to obtain base forecasts and the reconciliation method are fixed throughout the experiments. Using both empirical datasets, as well as a simulation study, we find evidence that constructing hierarchies via clustering can lead to improved forecasting performance, although the optimal clustering method depends on the dataset characteristics.% \textbf{We use the same base forecasting model and reconciliation method through this paper}.
 
-While the idea behind time series clustering is intuitively appealing, the increased accuracy when using clustering-based methods may be attributed to two factors. The first, which we refer to as     ``grouping'' is the idea that some correct subsets of series are chosen to form new middle-level series. This is the argument commonly made to support clustering-based hierarchy construction \citep[see e.g.][]{liForecastReconciliationApproach2019, pangHierarchicalElectricityTime2022, matteraImprovingOutofSampleForecasts2023}.  
+While the idea behind time series clustering is intuitively appealing, the increased accuracy when using clustering-based methods may be attributed to two factors. The first, which we refer to as     ``grouping'' is the idea that some correct subsets of series are chosen to form new middle-level series. This is the argument commonly made to support clustering-based hierarchy construction \citep[see \textit{e.g.}][]{liForecastReconciliationApproach2019, pangHierarchicalElectricityTime2022, matteraImprovingOutofSampleForecasts2023}.  
 %The idea that often motivates time series clustering is these ``groupings'' be composed of similar series. 
-The second factor, which we refer to as the ``structure'' of the hierarchy, includes the number of middle level series, the depth of the hierarchy, and the distribution of group sizes in the middle layer(s). Evidence showing that clustering within a forecast reconciliation framework leads to improved forecast accuracy, does not disentangle contributions from these two factors. Indeed, clustering methods may only work in so far as they generate a larger number of base forecasts. This argument would be consistent with the interpretation of reconciliation as a forecast combination of ``direct'' and ``indirect'' forecasts (\citealp{hollymanUnderstandingForecastReconciliation2021}), since more middle-level series implies a greater number of indirect forecasts in the combination. This leads to our third research question:
+The second factor, which we refer to as the ``structure'' of the hierarchy, includes the number of middle-level series, the depth of the hierarchy, and the distribution of group sizes in the middle layer(s). Evidence showing that clustering within a forecast reconciliation framework leads to improved forecast accuracy, does not disentangle contributions from these two factors. Indeed, clustering methods may only work in so far as they generate a larger number of base forecasts. This argument would be consistent with the interpretation of reconciliation as a forecast combination of ``direct'' and ``indirect'' forecasts (\citealp{hollymanUnderstandingForecastReconciliation2021}), since more middle-level series implies a greater number of indirect forecasts in the combination. This leads to our second research question:
 
 \begin{researchquestion}
-    Can the improved accuracy of cluster-based methods be attributed to grouping together similar time series, or to the structure of the hierarchy including the number of middle level series?
+    Should the improved accuracy of clustering-based methods be attributed to grouping together similar time series, or to the structure of the hierarchy? %including the number of middle level series?
 \end{researchquestion}
 
-To investigate this question, we devise the following approach. We take a hierarchy found using a certain clustering method (or even the natural hierarchy), and then randomly permute the bottom level series (\textit{i.e.}, the leaf nodes of the hierarchical tree). Multiple new ``twin'' hierarchies are formed with an identical structure to the original hierarchy, but with permuted leaves. In this way, we keep the \textit{hierarchical structure} fixed, but alter how series are combined. This method can be thought of as an informal ``permutation type'' test \citep{welch1990}. Our main finding is that hierarchies constructed using clustering methods do not significantly outperform their random ``twins'', leading to the conclusion that the driver of forecast improvement is the enlarged number of series in the hierarchy and/or its structure, rather than similarities between the time series. 
+To investigate this question, we devise the following approach. We take a hierarchy found using a certain clustering method (or even the natural hierarchy), and then randomly permute the bottom level series (\textit{i.e.}, the leaf nodes of the hierarchical tree). Multiple new ``twin'' hierarchies are formed with an identical structure to the original hierarchy, but with permuted leaves. In this way, we keep the \text{hierarchical structure} fixed, but alter how series are combined. This method can be thought of as an informal ``permutation type'' test \citep{welch1990}. Our main finding is that hierarchies constructed using clustering methods do not significantly outperform their random ``twins'', leading to the conclusion that the driver of forecast improvement is the enlarged number of series in the hierarchy and/or its structure, rather than similarities between the time series. 
 
 %Despite the intuitive appeal of clustering analysis, it is not straightforward to conclude that clustering itself is the primary contributor to the performance improvement illustrated in the literature. Except the factor of potentially accurate base forecasts of new series introduced by clustering, another factor  is the ``enriched structure'', meaning that a larger set of series is optimally combined to obtain the reconciled forecasts, leading to reduced model uncertainty and data uncertainty from forecast combination perspective (\citealp{hollymanUnderstandingForecastReconciliation2021}). The following question also motivates our research:
 %\begin{researchquestion}
@@ -121,11 +130,12 @@ To investigate this question, we devise the following approach. We take a hierar
 Finally, from a practical perspective, we investigate the role of forecast combination in cluster-based hierarchical forecasting. With multiple hierarchies available and inspired by the forecast combination literature (\citealp{wangForecastCombinations50year2022}), we consider the last research question
 
 \begin{researchquestion}
-    Does an equally-weighted combination of reconciled forecasts derived from multiple random hierarchies improve forecast reconciliation performance?
+    Does an equally-weighted combination of reconciled forecasts derived from multiple hierarchies improve forecast reconciliation performance?
 \end{researchquestion}
 
-Note that forecast combination here differs from that of \cite{hollymanUnderstandingForecastReconciliation2021}, in that our approach averages not only different coherent forecasts, but also over hierarchies with completely different middle level series. This is possible since only coherent bottom and top level forecasts are averaged and evaluated.
-\clearpage
+Note that forecast combination here differs from that of \cite{hollymanUnderstandingForecastReconciliation2021}, in that our approach averages not only different coherent forecasts, but also across hierarchies with completely different middle level series. This is possible since only coherent bottom and top level forecasts are averaged and evaluated.
+
+
 In summary, this paper presents four main contributions:
 
 \begin{itemize}
@@ -136,97 +146,91 @@ In summary, this paper presents four main contributions:
 
 \end{itemize}
 
-The rest of the paper is organized as follows. Section~\ref{sec:setup} describes the experimental setup including the datasets used, the reconciliation methods employed, the clustering techniques considered, and the rolling window evaluation with associated forecast performance metrics. Section~\ref{sec:natural} investigates RQ1, in particular the performance of the natural hierarchy compared to the two-level hierarchy. The permutation approach used throughout the paper is also introduced at this juncture. Section~\ref{sec:clustering} evaluate the performance of different clustering approaches in answering RQ2 and RQ3 via two empirical studies. To avoid the concern that clusters found in the empirical datasets are spurious, a simulation study is considered in Section~\ref{sec:simulation}. Section~\ref{sec:combination} covers the forecast combination approaches raised in RQ4. Section~\ref{sec:conclusion} concludes this paper with discussions on the findings and outlines future research directions.
+The rest of the paper is organized as follows. Section~\ref{sec:methodology} describes the trace minimization reconciliation methods employed and the clustering-based hierarchical time series augmentation techniques considered. Section~\ref{sec:cluster} first introduces the two datasets used, and then investigates RQ1, in particular the performance of cluster hierarchy compared to natural hierarchy and two-level hierarchy. Section~\ref{sec:permutation} introduces the novel permutation approach, followed by the investigation of RQ2 via evaluating the performance of natural hierarchy and the best performing cluster hierarchy compared to their respective random twins. To avoid the concern that clusters found in the empirical datasets are spurious, a simulation study is considered in Section~\ref{sec:simulation}. Section~\ref{sec:combination} covers the forecast combination approach raised in RQ3. Section~\ref{sec:conclusion} concludes this paper with discussions on the findings and outlines future research directions. 
+Data and code for reproducing the results in this paper are available at \url{https://github.com/AngelPone/project_hierarchy}.
 
 %Section~\ref{sec:related_work} reviews related work in time series clustering, forecast reconciliation and clustering-based forecast reconciliation. In Section~\ref{sec:method} we introduce the proposed framework, elaborating on three approaches: cluster hierarchies, random hierarchies and combination hierarchies. The simulation study is presented in Section~\ref{sec:simulation}, while Section~\ref{sec:emp} details empirical experiments conducted on the Australian tourism dataset and U.S. mortality dataset. Finally, Section~\ref{sec:conclusion} concludes this paper with discussions on the findings and outlines future research directions.
 
 
-\section{Experiment setup}\label{sec:setup}
+\section{Methodology}\label{sec:methodology}
 
-\subsection{Dataset description}
+\subsection{Hierarchical forecasting and reconciliation methods}
 
-We conduct our experiments on two empirical datasets throughout this paper. The first one is the monthly Australian domestic tourism dataset, covering the period from January 1998 to December 2016. The data is recorded as ``visitor nights'', representing the total number of nights spent by Australians away from home. In this dataset, the total visitor nights of Australia is geographically disaggregated into seven states and territories, which are further divided into $27$ zones, and then into $76$ regions. Additionally, each regional-level series is divided by four travel purposes. Overall, this dataset comprises a total of $555$ time series with $304$ of those at the bottom level.
-Section 4 of \cite{wickramasuriyaOptimalForecastReconciliation2019} provided an in-depth explanation of this dataset.
+%We propose a general hierarchical time series augmentation framework, in which new time series are constructed by aggregating subsets of bottom-level series. 
+%Such subsets can be formed according to  results of time series clustering, attributes of the time series or other expert knowledge. 
 
-The second dataset focuses on cause-of-death mortality in the U.S. We obtain monthly cause-specific death count data from the Center for Disease Control and Prevention (CDC) for the period between January 1999 and December 2019. The dataset, organized based on the 10th revision of the International Classification of Diseases (ICD) 113 Cause List\footnote{For more detailed information on the dataset, please refer to \url{https://wonder.cdc.gov/ucd-icd10-expanded.html}.}, forms a hierarchy containing $120$ time series, with $98$ of those being bottom-level series\footnote{To address the data suppression issue, we combined certain ICD codes to ensure all death counts are no less than 10. }. The top-level series represents the aggregated deaths from all causes, while the middle-level series are constructed based on major cause-of-death groups. As an example, \textit{Diseases of heart} (ICD code: I00--I09, I11, I13, I20--I51; 113 Cause List: GR113-054) is a middle-level series in the hierarchy, which contains bottom-level series \textit{Hypertensive heart disease} (I11; GR113-056) and \textit{Heart failure} (I50; GR113-067), among other circulatory diseases.  % To address issues with suppressed data values, we combine causes that contain suppressed values and share a parent cause. The death counts for these combined categories are calculated by subtracting the death counts of sibling causes from the death counts of their parent causes. This processing results in a refined dataset that includes $120$ time series with $98$ at the bottom level.
+Hierarchical data can be characterized as being made up of bottom level series and their aggregates. In general, we consider a hierarchy with $n$ time series stacked into a vector $\boldsymbol{y}_t$. Let $\boldsymbol{b}_t$ denote the $m$ bottom level series, $\boldsymbol{a}_t$ denote the top level series, and $\boldsymbol{c}_t$ denote $k$ middle level series. The top level and bottom level will be common to all hierarchies we consider, and are augmented by middle level series. These middle level series can be formed according to attributes of the time series or in a data-driven fashion using time series clustering. The series are linked through an $(m+k+1)\times m$ summing matrix 
 
-Figures~\ref{fig:tourism} and~\ref{fig:mortality} illustrate the top-level series and four bottom-level series for the tourism and mortality datasets, respectively. 
-In the case of tourism data, the first three letters indicate geographical regions, and the last three denote travel purposes. For example, ``\textit{BEEHol}'' represents the visitor nights spent for holiday in the `Spa Country' region. As mentioned before, the death series are coded based on the ICD 113 Cause List. From the figures, we can see that the mortality dataset generally exhibits strong seasonality and trend, whereas the tourism dataset displays greater volatility and less obvious seasonal and trend components. We can also see that the patterns observed at the bottom level can be very different from those at the top and middle levels.
-
-%Names of mortality series are ICD codes representing causes of deaths. For example, \code{GR113-085} represents deaths because of asthma.
-
-
-\begin{figure}
-    \centering
-    \includegraphics[width=\textwidth]{figures/tourism.pdf}
-    \caption{Visualization of selected time series from the tourism dataset. ``AEB'', ``BAB'', ``BEB'', and ``BEE'' represent the regions `New England North West`, `Peninsula', `Western Grampians` and ``Spa Country'', respectively. ``Bus'', ``Oth'', ``Vis'' and ``Hol'' denote travel purposes ``Business'', ``Other'', ``Visit'' and ``Holiday'', respectively.}
-    \label{fig:tourism}
-\end{figure}
-
-\begin{figure}
-    \centering
-    \includegraphics[width=\textwidth]{figures/mortality.pdf}
-    \caption{{Visualization of selected time series from the death count dataset.} ``GR113-051'',  ``GR113-063'', ``GR113-085'', and ``GR113-091'' denote ``Parkinson disease'', ``All other forms of chronic ischemic heart disease'', ``Asthma'', and ``Diseases of appendix'', respectively.}
-    \label{fig:mortality}
-\end{figure}
-
-\subsection{Trace minimization forecast reconciliation approach}
-
-
-In this subsection, we describe the process of generating coherent forecasts using the trace minimization (MinT) reconciliation approach \citep{wickramasuriyaOptimalForecastReconciliation2019}, which will be employed throughout this paper. Consider a given hierarchy with $n$ time series and $m$ of them being in the bottom level.  Let vectors $\boldsymbol{b}_t$, $\boldsymbol{a}_t$, and $\boldsymbol{y}_t$ represent observations of the bottom level, the aggregated levels (\textit{i.e.} middle and top levels), and the entire hierarchy at time $t$, respectively.
-They are linked through an $n\times m$ summing matrix $\boldsymbol{S}$, which can be decomposed into an identity matrix $\boldsymbol{I}_m$ and a constraint matrix $\boldsymbol{A}$ consisting of $0$ and $1$, such that, 
+%$\boldsymbol{S}$, which can be decomposed into an identity matrix $\boldsymbol{I}_m$ and two aggregation matrices $\boldsymbol{A}$ and $\boldsymbol{C}$ consisting of $0$ and $1$, such that, 
 \[
   \boldsymbol{y}_t = \boldsymbol{S}\boldsymbol{b}_t = \begin{bmatrix}
-    \boldsymbol{A} \\ \boldsymbol{I}_m 
+    \boldsymbol{A} \\\boldsymbol{C} \\ \boldsymbol{I}_m 
   \end{bmatrix}  \boldsymbol{b}_t = \begin{bmatrix}
-      \boldsymbol{a}_t \\ \boldsymbol{b}_t
+      \boldsymbol{a}_t \\ \boldsymbol{c}_t \\\boldsymbol{b}_t
   \end{bmatrix},
 \]
-where $\boldsymbol{A}$ represents the mapping from bottom-level time series to aggregated-level time series. 
+where, $\boldsymbol{C}$ consists of zeros and ones that encode the aggregation, \textit{i.e.}, $c_{ij}=1$ if bottom level series $j$ is included in middle level series $i$, and zero otherwise. The top level series aggregates all bottom levels, \textit{i.e.}, $\boldsymbol{A} = \mathbf{1}_{1\times m}$, which is a row of ones.
 
-Assume our objective is to make $h$-step-ahead forecasts based on $T$ historic observations, we would first produce $h$-step-ahead unreconciled (or ``base'') forecasts $\hat{\boldsymbol{y}}_{T+h}$. Note that there are many different ways to compute such forecasts. In this paper, we adopt the Exponential Smoothing (ETS) method, a well-known univariate forecasting model widely used in both academia and industry \citep{ForecastingExponentialSmoothing}. 
-The \code{forecast} (\citealp{forecast}) package in {R} (\citealp{R}) is implemented to produce base forecasts for each time series in the hierarchy.
-Subsequently, the MinT reconciliation method is applied to produce coherent forecasts:
+%where $\boldsymbol{A}$ and  $\boldsymbol{C}$ represent the mappings from bottom-level time series to the given aggregated time series and constructed time series, respectively. 
+%Each row of $\boldsymbol{C}$ corresponds to a subset of bottom-level series. The values $c_i, i=1,\dots,m$, indicate whether the $i$-th bottom-level series belongs to the subset.
+% In the case of a two-level hierarchy, we simply have $\mathbf{A} = \mathbf{1}_{1\times m}$.
+%We consider a two-level given hierarchy throughout this paper, where $\mathbf{A} = \mathbf{1}_{1\times m}$.
+
+
+%\subsection{Trace minimization forecast reconciliation approach}
+
+
+%Forecast reconciliation is a statistical technique aimed to improve the overall forecasts accuracy across different series in a hierarchical setting. It is a post-forecasting step that ensures the coherence of forecasts for all series in the hierarchy. Well-recognized regression types of reconciliation include the Ordinary Least Square (OLS) method proposed by \cite{hyndmanOptimalCombinationForecasts2011}, and the trace minimization (MinT) method proposed by \cite{wickramasuriyaOptimalForecastReconciliation2019}. 
+%Forecast reconciliation is a hierarchical forecasting which first generates base forecasts for all time series in the hierarchy, and then reconciles the base forecasts via regression (\citealp{hyndmanOptimalCombinationForecasts2011}) or trace minimization (MinT, \citealp{wickramasuriyaOptimalForecastReconciliation2019}).
+%It is well-known for the ability to produce coherent and more accurate forecasts, which has been exploited in several perspectives, such as forecast combination (\citealp{hollymanUnderstandingForecastReconciliation2021}) or projection (\citealp{panagiotelisForecastReconciliationGeometric2021}).
+%In this subsection, we describe the process of generating coherent forecasts using the MinT approach, which will be employed throughout this paper. 
+
+% Consider a given hierarchy with $n$ time series with $m$ of them at the bottom level.  Let vectors $\boldsymbol{b}_t$, $\boldsymbol{a}_t$, and $\boldsymbol{y}_t$ represent observations  at time $t$ of the bottom level, the aggregated levels (\textit{i.e.}, middle and top levels), and the entire hierarchy, respectively.
+% The vectors are linked through an $n\times m$ summing matrix $\boldsymbol{S}$, which can be decomposed into an identity matrix $\boldsymbol{I}_m$ and a constraint matrix $\boldsymbol{A}$ consisting of $0$ and $1$, such that, 
+% \[
+%   \boldsymbol{y}_t = \boldsymbol{S}\boldsymbol{b}_t = \begin{bmatrix}
+%     \boldsymbol{A} \\ \boldsymbol{I}_m 
+%   \end{bmatrix}  \boldsymbol{b}_t = \begin{bmatrix}
+%       \boldsymbol{a}_t \\ \boldsymbol{b}_t
+%   \end{bmatrix},
+% \]
+% where $\boldsymbol{A}$ represents the mapping from bottom-level time series to aggregated-level time series. In the case of a two-level hierarchy, we simply have $\mathbf{A} = \mathbf{1}_{1\times m}$.
+
+%To produce $h$-step-ahead forecasts based on $T$ historic observations, we would first produce $h$-step-ahead unreconciled (or ``base'') forecasts $\hat{\boldsymbol{y}}_{T+h}$. Note that there are different ways to compute such forecasts. In this paper, we adopt the Exponential Smoothing (ETS) method, a well-known univariate forecasting model widely used in both research and practice \citep{ForecastingExponentialSmoothing}. 
+%The \code{forecast} (\citealp{forecast}) package in {R} (\citealp{R}) is implemented to produce base forecasts for each time series in the hierarchy.
+%Subsequently, the MinT reconciliation method is applied to produce coherent forecasts:
+%\[
+%    \tilde{\boldsymbol{y}}_{T+h} = \boldsymbol{S}(\boldsymbol{S}'\boldsymbol{W}_h^{-1}\boldsymbol{S})^{-1}\boldsymbol{S}'\boldsymbol{W}_h^{-1}\hat{\boldsymbol{y}}_{T+h},
+%\]
+%where $\boldsymbol{W}_h$ is the covariance matrix of $h$-step-ahead forecast errors. The shrinkage method is employed to obtain the estimator of $\boldsymbol{W}_h$ \citep{wickramasuriyaOptimalForecastReconciliation2019}. %is considered throughout this paper.
+%Several estimators of $\boldsymbol{W}_h$ were proposed in \cite{wickramasuriyaOptimalForecastReconciliation2019}. %such as the OLS estimator, variance scaling, structural scaling estimator, and shrinkage estimator. 
+% due to its ability to account for covariance in forecast errors.
+
+For the purposes of this paper, all forecasting is carried out as a two-step process. First, so-called \textit{base} forecasts are produced for all series in the hierarchy and stacked into an $n$-vector $\hat{\bm{y}}$, where subscripts are suppressed for brevity. For base forecasts, we use the Exponential Smoothing (ETS) method \citep{ForecastingExponentialSmoothing}, implemented using the \code{forecast} (\citealp{forecast}) package in {R} (\citealp{R}). Alternative methods such as ARIMA models were also considered, but this choice had very little impact on the overall conclusions. 
+
+The base forecasts generated in this first step, do not have the property that bottom level forecasts add up to forecasts of the aggregates, \textit{i.e.}, they are \textit{incoherent}. Therefore, forecast reconciliation is used as a post-forecasting step to ensure coherence of forecasts for all series in the hierarchy. In general, reconciliation takes the form of projecting the base forecasts as
 \[
-    \tilde{\boldsymbol{y}}_{T+h} = (\boldsymbol{S}'\boldsymbol{W}_h^{-1}\boldsymbol{S})^{-1}\boldsymbol{S}'\boldsymbol{W}_h^{-1}\hat{\boldsymbol{y}}_{T+h},
+    \tilde{\boldsymbol{y}} = \boldsymbol{S}(\boldsymbol{S}'\boldsymbol{W}_h^{-1}\boldsymbol{S})^{-1}\boldsymbol{S}'\boldsymbol{W}_h^{-1}\hat{\boldsymbol{y}},
 \]
-where $\boldsymbol{W}_h$ is the covariance matrix of $h$-step-ahead forecast errors, which is estimated using the MinT shrinkage estimator based on the in-sample one-step-ahead forecast errors (\citealp{wickramasuriyaOptimalForecastReconciliation2019}). 
+where $\tilde{\boldsymbol{y}}$ are the \textit{reconciled} forecasts and $\boldsymbol{W}_h$ is the covariance matrix of $h$-step-ahead forecast errors. For reconciliation, we use the MinT method \citep{wickramasuriyaOptimalForecastReconciliation2019}, which involves plugging in a shrinkage estimator for $\boldsymbol{W}_h$. Although alternatives were considered, including approaches that assume $\boldsymbol{W}_h$ is diagonal or an identity matrix \citep{hyndmanOptimalCombinationForecasts2011}, this choice has little impact on our main conclusions.
+
 
 %\subsection{Grouping-based forecast reconciliation}
-\subsection{Augmenting hierarchical time series through clustering}
+%\subsection{Augmenting hierarchical time series through clustering} 
+\subsection{Time series clustering} 
+\label{sec:clustering}
 
-%DELETE
-
-%Instead of a We use the term ``augmentation'' to denote the process of creating middle-level series by aggregating subsets of bottom-level series. leading to a modified hierarchical time series $\boldsymbol{y}^c_t$, which can be represented as:
-%leading to a modified hierarchical time series $\boldsymbol{y}^c_t$, which can be represented as:
-%\[
-%   \boldsymbol{y}^c_t = \boldsymbol{S}^c\boldsymbol{b}_t = \begin{bmatrix}
-%        \boldsymbol{A}' &
-%        \boldsymbol{C}_1 &
-%        \cdots &
-%        \boldsymbol{C}_K &
-%        \boldsymbol{I}_m
-    %\end{bmatrix}'\boldsymbol{b}_t,
-%\] 
-%where each $\boldsymbol{C}_k$ represents a newly created middle-level series, formed by aggregating a subset of bottom-level series $\boldsymbol{b}_t$. The vector $\boldsymbol{C}_k$ is of $m$-dimensional and its elements $c_{k, i} \in \{0, 1\}, i=1,\dots m$ indicate whether the $i$-th bottom-level series belongs to the aggregated subset. Notably, different augmentation approaches can result in different hierarchies with varying numbers of new middle-level series $K$. 
-
-%After new hierarchies are constructed, we produce $h$-step-ahead base forecasts based on $T$ observations for each time series in the new hierarchy, and apply forecast reconciliation with MinT shrinkage estimator to obtain reconciled forecasts $\tilde{\boldsymbol{y}}^c_{T+h}$. Given our specific interest in the performance of the two-level hierarchy, we extract reconciled forecasts of the two-level hierarchy from $\tilde{\boldsymbol{y}}_{T+h}^c$, \textit{i.e.},
-%\[
-%  \tilde{\boldsymbol{y}}_{T+h} = \tilde{\boldsymbol{y}}^c_{T+h, 1:(n-m) \cup (n + K - m + 1): (n+K)}.
-%\]
-
+%\textbf{HOW TO AUGMENT THE HIERARCHY}
 %\subsection{Cluster hierarchy construction approach}
 
-To the best of our knowledge, the following studies are the exclusive examples in the literature that propose to integrate forecast reconciliation with hierarchy construction via time series clustering.
-\cite{pangHierarchicalElectricityTime2018} detect consumption patterns of electricity smart meter data based on X-means clustering algorithm, while \cite{pangHierarchicalElectricityTime2022} propose a multiple alternative clustering method to group similar electricity and solar power time series. 
-\cite{liForecastReconciliationApproach2019} apply agglomerative clustering to cause-of-death time series, and
+To the best of our knowledge, four studies have attempted to improve forecast accuracy in a reconciliation setting by constructing middle levels of the hierarchy using time series clustering.
+\cite{pangHierarchicalElectricityTime2018} detect consumption patterns of electricity smart meter data based on X-means clustering algorithm, while \cite{pangHierarchicalElectricityTime2022} propose several alternative clustering methods to group similar electricity and solar power time series. 
+\cite{liForecastReconciliationApproach2019} apply agglomerative hierarchical clustering to cause-of-death time series, and
 \cite{matteraImprovingOutofSampleForecasts2023} utilize Partition Around Medoids algorithms to unveil underlying structures in stock price indexes. 
-These studies demonstrate superior forecast performance of the clustering-based hierarchies compared to the natural hierarchy or the two-level hierarchy.
-However, these studies are limited in scope as they focus on a small number of  clustering techniques. 
+However, these studies are limited in scope as they focus on a few  clustering techniques. 
+%\todo{Should we move to intro?}
 %construct hierarchies through clustering algorithms and 
-
-
-Inspired by the comprehensive overview of time series clustering by \cite{aghabozorgiTimeseriesClusteringDecade2015a}, we consider various approaches based on three key components, namely time series representations, distance measures, and clustering algorithms. Our framework for creating a clustering approach is as follows: we first choose a time series representation, which can be the raw time series, the in-sample forecast error, features of the time series, or features of the in-sample forecast error. We then select a distance measure, either Euclidean distance or dynamic time warping. Once the representation and the distance measure are determined, we choose a clustering algorithm, either $k$-medoids or agglomerative hierarchical clustering, to form clusters in the dataset. In total, we consider 12 different clustering approaches in our experiments.
+Inspired by the comprehensive overview of time series clustering by \cite{aghabozorgiTimeseriesClusteringDecade2015a}, we consider various approaches based on three key components, namely \textit{time series representations}, \textit{distance measures}, and \textit{clustering algorithms}. %Our framework for creating a clustering approach is as follows: we first choose a time series representation, which can be the raw time series, the in-sample forecast error, features of the time series, or features of the in-sample forecast error. We then select a distance measure, either Euclidean distance or dynamic time warping. Once the representation and the distance measure are determined, we choose a clustering algorithm, either $k$-medoids or agglomerative hierarchical clustering, to form clusters in the dataset. In total, we consider 12 different clustering approaches in our experiments.
 %, and evaluation measures. 
 
 
@@ -235,376 +239,489 @@ Inspired by the comprehensive overview of time series clustering by \cite{aghabo
 
 % Time series clustering is an essential technique that finds applications across various domains, including finance (\citealp{DIAS2015852}), energy (\citealp{pangHierarchicalElectricityTime2018}), robotics (\citealp{gopalapillaiExperimentationAnalysisTime2014}), and others. It is commonly used to identify similar patterns within time series datasets, aiding in applications such as anomaly detection, pattern discovery, and recommendation.
 
-\subsubsection{Time series representations}
+\paragraph{\textbf{Time series representations}}
 
 
-The first step of time series clustering is to find appropriate time series representations. Time series representations transform time series data into another space through techniques like feature extraction or dimension reduction. By utilizing diverse time series representations, we are able to obtain distinct clusters which offer varied perspectives on the same dataset.
-Considering the impracticality of exploring every conceivable time series representation, we focus on four key ones: raw time series without any transformation (hereafter referred to as ``time series''), in-sample one-step-ahead forecast error, features of time series, and features of in-sample one-step-ahead forecast error.
-The inclusion of raw time series is motivated by its simplicity and broad applicability.
-A crucial element contributing to the success of the MinT method lies in estimating the covariance matrix of base forecast errors based on in-sample one-step-ahead forecast error. Hence, we consider in-sample one-step-ahead forecast error as a representation to examine how the structure within the error series influences reconciliation performance. 
-Raw time series and in-sample error representations are standardized to eliminate the impact of scale variations. This is done by normalizing each series by subtracting its mean and then dividing by the standard error.
+The time series representation refers to the object that acts as an input for time series clustering. %that provide diverse perspectives on the same dataset.
+% Considering the impracticality of exploring every conceivable time series representation, we focus on four key ones: raw time series without any transformation (hereafter referred to as ``time series''), in-sample one-step-ahead forecast error, features of time series, and features of in-sample one-step-ahead forecast error.
+Our first candidate for the representation is raw time series itself, due to its simplicity and broad applicability.
+%However, a crucial element contributing to the success of the MinT method lies in estimating the covariance matrix of base forecast errors based on in-sample one-step-ahead forecast error. 
+We also consider the in-sample one-step-ahead forecast error as a representation of the time series, since a key step in MinT reconciliation is to estimate the $\boldsymbol{W}_h$ matrix. %to examine how the structure within the error series influences reconciliation performance. 
+It is important to note that raw time series and in-sample error representations are standardized to eliminate the impact of scale variations. %This is done by normalizing each series by subtracting its mean and then dividing by the standard error.
 
-Features, widely employed in capturing time series characteristics across literature, play a pivotal role in various time series applications, including clustering (\citealp{tianoFeatTSFeaturebasedTime2021}) and forecasting (\citealp{wangUncertaintyEstimationFeaturebased2022, liFeaturebasedIntermittentDemand2023}). In our exploration, we incorporate features of both raw time series and in-sample forecast error as representations. The included time series features, calculated by the \code{tsfeatures} (\citealp{tsfeatures}) in R, have been applied in several feature-based forecasting studies, \textit{e.g.}, \cite{montero-mansoFFORMAFeaturebasedForecast2020}.
-Notably, to the best of our knowledge, we are the first to utilize in-sample forecast error and time series features as representations in the context of forecast reconciliation literature.
-These representations allow us to gain insights into the diverse aspects of hierarchical time series data.
+A potential shortcoming to using the time series or forecast error as a representation is their high dimensionality, which is equal to the sample size of the training data. To address this concern, low dimension summaries of ``features'' can be considered. Features have been used in the context
+%Features, widely employed in capturing time series characteristics, play a pivotal role in various time series applications, including 
+time series clustering by \cite{tianoFeatTSFeaturebasedTime2021}, and for forecasting by \cite{wangUncertaintyEstimationFeaturebased2022} and \cite{ liFeaturebasedIntermittentDemand2023}. 
+We consider features of both the raw time series and the in-sample forecast error as representations. After filtering out the features that are constant across all series, we select $56$ features.\footnote{The list and descriptions of features are available in the online GitHub repository.} These time series features are calculated by the \code{tsfeatures} (\citealp{tsfeatures}) package in R. %have been applied in several feature-based forecasting studies, \textit{e.g.}, \cite{montero-mansoFFORMAFeaturebasedForecast2020}.
+To the best of our knowledge, we are the first to utilize in-sample forecast error and time series features as representations in the context of forecast reconciliation.
+%\sout{These representations allow us to gain insights into the diverse aspects of hierarchical time series data}.
+
+\paragraph{\textbf{Distance measures}}
+
+All clustering algorithms we consider require a distance to be defined between the objects that act as inputs to the algorithm.
+%Distance measures serve as crucial tools for assessing the similarity between two series, which in turn significantly influence the clustering results.
+We consider two widely applied distance measures: Euclidean distance and dynamic time warping (DTW). When employing Euclidean distance, dimension reduction is necessary due to the curse of dimensionality. %, which acts as the dimension over which Euclidean distance is computed in our applications. 
+%Failure to undertake dimension reduction may result in undesirable clustering outcomes due to the curse of dimensionality. 
+To address this, we perform Principal Component Analysis (PCA), extracting the first few principal components that collectively explain at least 80\% of the variance within the representations.
+
+Unlike Euclidean distance, DTW is not as sensitive to the curse of dimensionality (\citealp{sakoeDynamicProgrammingAlgorithm1978}). Instead of performing one-to-one point comparisons, DTW accommodates time series of varying lengths through many-to-one comparisons. This flexible approach allows for the recognition of time series with similar shapes, even in the presence of signal transformations such as shifting and/or scaling.
 
 
+\paragraph{\textbf{Clustering algorithms}}
+%\sout{Clustering algorithms, such as partitioning, hierarchical, grid-based, and model-based approaches,  identify clusters by optimizing specific objective functions} \citep{aghabozorgiTimeseriesClusteringDecade2015a}. %, or applying heuristics. %These functions are calculated based on chosen time series representations and distance measures.
+In this paper, we focus on two clustering algorithms, namely $k$-medoids and agglomerative hierarchical clustering. These algorithms are implemented using the \texttt{cluster} (\citealp{cluster}) package in R. {The $k$-medoids algorithm aims to minimize the total distance between all observations within a cluster and their respective cluster median.} This is implemented using the partitioning around medoids (PAM) method (\citealp{PartitioningMedoidsProgram1990}).
+%Unlike $k$-means which employs the mean vector of samples as the cluster center, $k$-medoids selects one observation within each cluster as the center. 
+Following the recommendation of \cite{PartitioningMedoidsProgram1990}, we determine the optimal number of clusters using the average silhouette width (ASW), which is a commonly used index in cluster validation \citep[see \textit{e.g.},][]{shutaywi2021silhouette}.
+%ASW assesses the quality of clustering results by measuring the proximity of samples within a cluster compared to neighboring clusters.
+%Given a clustering result, the silhouette width for the $i$th sample is calculated as 
+%\[
+%  SW(i) = \frac{b(i)-a(i)}{\max\{a(i), b(i)\}},  
+%\]
+%where $a(i)$ represents the average distance of the $i$th observation to others in the same cluster, and $b(i)$ is the average distance to observations in the cluster nearest to observation excluding the cluster that observation $i$ is assigned to. A higher silhouette width indicates greater proximity to observations within the same cluster than to those in neighboring clusters. The ASW is the average of silhouette width across all observation. We select the clustering result that maximizes the ASW by iterating over all possible numbers of clusters. However, ASW has the limitation of being undefined when there is only one cluster. %\textbf{Gap statistics (\citealp{tibshiraniEstimatingNumberClusters2002}) can be used to address this limitation, but it is incompatible with DTW.}
 
+Agglomerative hierarchical clustering initializes each observation in its own cluster, and then merges the nearest two clusters in a stepwise fashion until all observations form a single cluster. We employ Ward's linkage (\citealp{murtaghWardHierarchicalAgglomerative2014a}) which defines the nearest clusters as those that minimize the increase in within-cluster variance at each step. Applying hierarchical clustering to $m$ bottom-level series results in a binary hierarchical tree with ($2m-1$) nodes, all of which are retained as middle level series. 
 
-\subsubsection{Distance measures}
-
-Distance measures serve as crucial tools for assessing the similarity/dissimilarity between two series, significantly influencing the clustering results.
-We consider two widely applied distance measures: Euclidean distance and dynamic time warping (DTW). Due to the limited number of time series in comparison to the high dimensionality of individual time series (\textit{i.e.}, the length of time series and the number of time series features) in our applications, dimension reduction on the aforementioned representations becomes imperative when employing Euclidean distance. Failure to undertake dimension reduction may result in undesirable clustering outcomes due to the curse of dimensionality. To address this, we perform Principal Component Analysis (PCA), extracting the first few principal components that collectively explain at least 80\% of the variance within the representations.
-
-In contrast, DTW (\citealp{sakoeDynamicProgrammingAlgorithm1978}), exhibits reduced sensitivity to the curse of dimensionality. Unlike Euclidean distance, which performs one-to-one point comparisons, DTW accommodates time series of varying lengths through many-to-one comparisons. This flexible approach allows for the recognition of time series with similar shapes, even in the presence of signal transformations such as shifting and/or scaling.
-
-
-\subsubsection{Clustering algorithms}
-Clustering algorithms, such as partitioning, hierarchical, grid-based, model-based clustering, among others, identify clusters by optimizing specific objective functions (\citealp{aghabozorgiTimeseriesClusteringDecade2015a}). These functions are calculated based on chosen time series representations and distance measures.
-In this paper, we focus on two prevalent approaches, $k$-medoids and agglomerative hierarchical clustering. The $k$-medoids algorithm, a classical partitioning clustering method, aims to minimize the total distance between all samples within a cluster and their respective cluster centers. 
-Unlike $k$-means which employs the mean vector of samples as the cluster center, $k$-medoids selects one sample within the cluster as the center. 
-Specifically, we adopt the $k$-medoids variant, partitioning around medoids (PAM, \citealp{PartitioningMedoidsProgram1990}).
-Following the recommendation of \cite{PartitioningMedoidsProgram1990}, we determine the optimal number of cluster using the average silhouette width (ASW), a popular cluster validation index.
-ASW assesses the quality of clustering results by measuring the proximity of samples within a cluster compared to neighboring clusters.
-Given a clustering result, the silhouette width for the $i$th sample is calculated as 
-\[
-  SW(i) = \frac{b(i)-a(i)}{\max\{a(i), b(i)\}},  
-\]
-where $a(i)$ represents the average distance of the $i$th sample to others in the same cluster, and $b(i)$ is the average distance to samples in the nearest cluster it is not assigned to. A higher silhouette width indicates greater proximity to samples within the same cluster than to those in neighboring clusters. The ASW is the average of silhouette widths across all samples. We select the clustering result that maximizes the ASW by iterating over all possible numbers of clusters. However, ASW has the limitation of being undefined when there is only one cluster. 
-
-On the other hand, agglomerative hierarchical clustering begins by considering each sample as a cluster, and then gradually merges clusters until all samples forms a single cluster. Recall that $m$ represents the number of bottom level series. 
-This process results in a binary hierarchical tree with ($2m-1$) nodes. We employ Ward's linkage (\citealp{murtaghWardHierarchicalAgglomerative2014a}) to merge clusters, minimizing the increase of within-cluster variances at each step. 
 
 \begin{figure}[h!]
     \centering
-    \includegraphics[width=0.45\textwidth]{figures/pamcluster.pdf}
+    \vspace{0.2in}
+    \includegraphics[width=0.46\textwidth]{figures/pamcluster.pdf}
     \hspace{1cm}
-    \includegraphics[width=0.45\textwidth]{figures/aggcluster.pdf}
+    \includegraphics[width=0.46\textwidth]{figures/aggcluster.pdf}
     \caption{\label{fig:cluster_example}Example clustering results of two clustering algorithms. Left panel displays example for $k$-medoids algorithm, and right panel displays example for agglomerative hierarchical clustering algorithm.}
 \end{figure}
-Illustrated in Figure~\ref{fig:cluster_example} are two example hierarchies generated by $k$-medoids and agglomerative clustering algorithms for an original hierarchy with four bottom-level series and one total series. These examples highlight the distinct behaviors of the two algorithms.
-Firstly, $k$-medoids constructs a simple hierarchy with a single middle level, while hierarchical clustering generates multiple nested middle levels. 
-Secondly, $k$-medoids produces a hierarchy with the same number of series as the optimal number of clusters, whereas hierarchical clustering yields multiple middle levels with ($m-2$) series.
-As the number of bottom-level series increases, the structural differences become increasingly significant, and we aim to investigate how these differences influence the performance of forecast reconciliation.
+Figure~\ref{fig:cluster_example} illustrates two examples of hierarchies generated by $k$-medoids and agglomerative clustering algorithms, on the left and right panels respectively. The corresponding two-level hierarchy would have four bottom-level series and one top-level series. % \sout{These examples highlight the distinct behaviors of the two algorithms.}
+Note that, $k$-medoids constructs a simple hierarchy with a single middle level, while hierarchical clustering generates multiple nested middle levels. 
+In general, $k$-medoids produces a hierarchy with fewer middle levels and middle level series compared to hierarchical clustering. As the number of bottom-level series increases, these differences become increasingly pronounced, with potential implications for forecast reconciliation.
 
-
-
-
-In summary, we employ 12 time series clustering approaches which are derived from combinations of four time series representations, two distance measures, and two clustering algorithms. The names and details of these approaches are listed in Table~\ref{tab:P3_methods}. The four time series representations need to perform dimension reduction when using Euclidean distance. Combing the four dimension reduced representations with two clustering algorithms results in the first eight clustering approaches. Note that features of raw time series and in-sample forecast error are not temporal data, thus incompatible with DTW. Therefore, the last four approaches are derived from combinations of two temporal representations (\textit{i.e.}, raw time series and in-sample error), DTW, and two clustering algorithms. After filtering out the features that are constant across all series, $56$ features are reserved. The list and descriptions of features are available in the supplementary materials. The $k$-medoids and hierarchical clustering algorithms are implemented using the \texttt{cluster} (\citealp{cluster}) package in R.
+In summary, we employ 12 time series clustering approaches which are derived from combinations of four time series representations, two distance measures, and two clustering algorithms. The names and details of these approaches are listed in Table~\ref{tab:P3_methods}. Note that all methods using DTW, have either the raw time series or forecast errors as representations, since DTW is not compatible with time series features. \\
 
 \begin{table}[h!]
 \caption{\label{tab:P3_methods} Details of the 12 clustering approaches considered.}
 \centering
 \resizebox{\textwidth}{!}{
-\begin{tabular}{lcrrr}
+\begin{tabular}{rcrrr}
     \toprule
-    Approaches & Dimension reduction & Representation & Distance measure & Clustering algorithms  \\ \midrule
+    Approach & Dimension reduction & Representation & Distance measure & Clustering algorithm  \\ \midrule
     TS-EUC-ME &  Yes & Time series  & Euclidean & $k$-medoids \\
-    ER-EUC-ME & Yes& In-sample error  & Euclidean & $k$-medoids \\
+    ER-EUC-ME & Yes& In-sample  error  & Euclidean & $k$-medoids \\
     TSF-EUC-ME & Yes& Time series features  & Euclidean & $k$-medoids \\
     ERF-EUC-ME & Yes& In-sample error features  & Euclidean & $k$-medoids \\
-    TS-EUC-HC & Yes& Time series  & Euclidean & hierarchical   \\ 
-    ER-EUC-HC & Yes& In-sample error  & Euclidean & hierarchical   \\ 
-    TSF-EUC-HC & Yes& Time series features  & Euclidean & hierarchical   \\ 
-    ERF-EUC-HC & Yes& In-sample error features  & Euclidean & hierarchical  \\
+    TS-EUC-HC & Yes& Time series  & Euclidean & Hierarchical   \\ 
+    ER-EUC-HC & Yes& In-sample error  & Euclidean & Hierarchical   \\ 
+    TSF-EUC-HC & Yes& Time series features  & Euclidean & Hierarchical   \\ 
+    ERF-EUC-HC & Yes& In-sample error features  & Euclidean & Hierarchical  \\
     TS-DTW-ME & No& Time series  & DTW & $k$-medoids \\
-    TS-DTW-HC & No& In-sample error  & DTW & hierarchical  \\
+    TS-DTW-HC & No& In-sample error  & DTW & Hierarchical  \\
     ER-DTW-ME & No& Time series  & DTW & $k$-medoids \\
-    ER-DTW-HC & No& In-sample error  & DTW & hierarchical 
+    ER-DTW-HC & No& In-sample error  & DTW & Hierarchical 
      \\\bottomrule
 \end{tabular}}
 \end{table}
 
 
 
+%The four time series representations need to perform dimension reduction when using Euclidean distance. 
+%Combing the four dimension reduced representations with two clustering algorithms results in the first eight clustering approaches. 
+%The first eight approaches require dimension reduction via PCA, while the last four approaches use either the raw time-series or forecast errors, 
+%must take temporal data as an input.
+%the last four approaches 
+%Note that features of raw time series and in-sample forecast error are not temporal data, thus incompatible with DTW. Therefore, the last four approaches are derived from combinations of two temporal representations (\textit{i.e.}, raw time series and in-sample error), DTW, and two clustering algorithms. 
+
+
+
+
+
+
+\section{Improving forecast performance via hierarchy augmentation}\label{sec:cluster}
+\subsection{Data description}
+
+We conduct our experiments on two empirical datasets throughout this paper. The first is the monthly Australian domestic tourism dataset, covering the period from January 1998 to December 2016.\footnote{Please refer to Section 4 of \cite{wickramasuriyaOptimalForecastReconciliation2019} for an in-depth explanation of this dataset.} The data is recorded as ``visitor nights'', representing the total number of nights spent by Australians away from home. In this dataset, the total visitor nights of Australia is geographically disaggregated into seven states and territories, which are further divided into $27$ zones, and then into $76$ regions. Additionally, each regional-level series is divided by four travel purposes. Overall, this dataset comprises a total of $555$ time series with $304$ of those at the bottom level. In the case of tourism data, the first two or three letters of the series name indicate geographical zones or regions, and the last three denote travel purposes. For example, ``\textit{AAAHol}'' represents the visitor nights spent for holiday in the ``Sydney'' region.
+
+
+The second dataset focuses on cause-of-death mortality in the U.S. We obtain monthly cause-specific death count data from the Center for Disease Control and Prevention (CDC) for the period between January 1999 and December 2019. The dataset, organized based on the 10th revision of the International Classification of Diseases (ICD) 113 Cause List\footnote{For more detailed information on the dataset, please refer to \url{https://wonder.cdc.gov/ucd-icd10-expanded.html}.}, forms a hierarchy containing $120$ time series, with $98$ of those being bottom-level series\footnote{To address the data suppression issue, we combined certain ICD codes to ensure all death counts are no less than 10. }. The top-level series represents the aggregated deaths from all causes, while the middle-level series are constructed based on major cause-of-death groups. As an example, \textit{Diseases of heart} (ICD code: I00--I09, I11, I13, I20--I51; 113 Cause List: GR113-054) is a middle-level series in the hierarchy, which contains bottom-level series \textit{Hypertensive heart disease} (I11; GR113-056) and \textit{Heart failure} (I50; GR113-067), among other circulatory diseases.  % To address issues with suppressed data values, we combine causes that contain suppressed values and share a parent cause. The death counts for these combined categories are calculated by subtracting the death counts of sibling causes from the death counts of their parent causes. This processing results in a refined dataset that includes $120$ time series with $98$ at the bottom level.
+
+%\textbf{italic or double quotation mark} Italic is better I think
+
+The top-level series, one selected middle-level series, and three selected bottom-level series are illustrated in Figures~\ref{fig:tourism} and~\ref{fig:mortality} for the tourism and mortality datasets, respectively. 
+%As mentioned before, the death series are coded based on the ICD 113 Cause List. 
+Both figures exhibit more regular and apparent trend and seasonality for series at a higher level of aggregation, while bottom-level series are noisier and prone to outliers. 
+Comparing the datasets to one another, the mortality dataset generally exhibits stronger seasonality and trend, whereas the tourism dataset displays greater volatility. Table~\ref{tab:features} summarizes three features of each dataset, with larger values indicating more ``signal'' relative to ``noise''. These are: the Holt Winters seasonal smoothing parameter; the lag 12 autocorrelation coefficient; and the strength of trend measured as the proportion of variance explained by the trend component in an STL decomposition. Table~\ref{tab:features} supports the conclusions made by visualizing the time series of the data, which is that the tourism data are noisier and less regular with respect to trend and seasonality.
+
+%Figures~\ref{fig:tourism} and~\ref{fig:mortality} illustrate the top-level series, one middle-level series, and three selected bottom-level series for the tourism and mortality datasets, respectively. 
+%As mentioned before, the death series are coded based on the ICD 113 Cause List. 
+%We can see that the patterns observed at the bottom level can be very different from those at the top and middle levels, for both datasets. 
+%Furthermore, the mortality dataset generally exhibits strong seasonality and trend, whereas the tourism dataset displays greater volatility but less obvious seasonal and trend components. 
+
+
+%Names of mortality series are ICD codes representing causes of deaths. For example, \code{GR113-085} represents deaths because of asthma.
+
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\textwidth]{figures/tourism.pdf}
+    \vspace{-0.35in}
+    \caption{Visualization of selected time series from the tourism dataset. ``AA'', ``AEB'', ``BEB'', and ``BEE'' represent the zone ``Metro NSW'', and the regions ``New England North West'', ``Western Grampians'', and ``Spa Country'', respectively. ``Bus'', ``Vis'', and ``Hol'' denote travel purposes ``Business'', ``Visit'', and ``Holiday'', respectively.}
+    \label{fig:tourism}
+\end{figure}
+
+
+\begin{figure}[h!]
+    \centering
+    \vspace{-0.2in}\includegraphics[width=\textwidth]{figures/mortality.pdf}
+    \vspace{-0.35in}
+    \caption{{Visualization of selected time series from the death count dataset.} ``GR113-019'', ``GR113-051'',  ``GR113-063'', and ``GR113-085'' denote ``Malignant neoplasms'', ``Parkinson disease'', ``All other forms of chronic ischemic heart disease'', and ``Asthma'', respectively.}
+    \vspace{-0.2in}
+    \label{fig:mortality}
+\end{figure}
+
+
+
+%In Table~\ref{tab:features}, we summarize three features of the bottom-level series for the two datasets, including the strength of trend defined in \cite{tsfeatures}, the seasonality smoothing  parameter of the Holt-Winters model (\citealp{holtForecastingSeasonalsTrends2004}), and the first order seasonal auto-correlation coefficient. 
+%function (ACF),
+%The strength of trend is defined as 
+%\[
+%\text{Strength of trend} = 1-\frac{\text{Var}(e_t)}{\text{Var}(f_t+e_t)},
+%\]
+%where $e_t$ and $f_t$ are residuals component and smoothed trend component obtained by the STL decomposition of the time series (\citealp{tsfeatures}).
+%We can confirm our earlier observations that the mortality dataset has stronger trend and seasonality compared to the tourism dataset in general. 
+
+
+\begin{table}[h!]
+    \centering
+    \caption{\label{tab:features}Trend and seasonality features for the tourism  and mortality dataset.}
+    \begin{tabular}{lrr}\toprule
+        Feature & tourism &  mortality\\ \midrule
+        Strength of trend & 0.1559 & 0.7574 \\
+        Seasonality smoothing parameter & 0.0002 & 0.0202 \\ 
+        Seasonal auto-correlation coefficient &0.1814  &0.6523  \\ 
+ \bottomrule
+    \end{tabular}
+\end{table}
+%of Holt-Winters model 
+
+
 \subsection{Evaluation of forecast accuracy}
 \label{subsec:evaluation}
 
-We investigate the impact of clustering on forecast reconciliation via a systematic comparison of the forecast accuracy based on different hierarchies. 
+%We investigate the impact of hierarchical on forecast reconciliation by comparing the forecast accuracy across different hierarchies. 
 %time series clustering techniques in Table \ref{tab:P3_methods}. %This comparison incorporates a diverse set of time series representations, distance measures, and clustering algorithms to provide a more thorough understanding of their impact on forecast performance.\\
-To evaluate the accuracy of reconciled forecasts based on a given hierarchical structure, we first calculate Root Mean Squared Scaled Error (RMSSE, \citealp{makridakisM5AccuracyCompetition2022}) for each series. 
-RMSSE is symmetric, independent of the data scale, and thus suitable for evaluating hierarchical forecasts (\citealp{athanasopoulosEvaluationHierarchicalForecasts2023}). 
-It is defined as follows:
+%For a fair comparison, only bottom and top level forecasts are included evaluated. 
+%To evaluate the accuracy of reconciled forecasts,  
+%based on a given hierarchical structure, 
+To measure forecast accuracy, we first calculate the Root Mean Squared Scaled Error (RMSSE, \citealp{makridakisM5AccuracyCompetition2022}), for each series. Letting $\breve y_t$ be any forecast of $y_t$, we define RMSSE as
+
 \[
-RMSSE = \sqrt{\frac{\frac{1}{h}\displaystyle\sum_{t=T+1}^{T+h}(y_t-\hat y_{t})^2}{\frac{1}{T-12}\displaystyle\sum_{t=13}^T (y_t - y_{t-12})^2}},
+RMSSE = \sqrt{\frac{\frac{1}{h}\displaystyle\sum_{t=T+1}^{T+h}(y_t-\breve y_{t})^2}{\frac{1}{T-12}\displaystyle\sum_{t=13}^T (y_t - y_{t-12})^2}} .
 \]
-where $\hat y_t$ is the reconciled forecast or base forecast of series $y_t$.
-It should be note that the denominator of our RMSSE measure is not exactly same as that in \cite{makridakisM5AccuracyCompetition2022}. We use the in-sample mean squared error of the seasonal naive method because the time series in our applications exhibit monthly seasonality. 
-Then, we take average RMSSE of all forecasts in $\tilde{\boldsymbol{y}}_{T+h}$ as measure for the hierarchy.
 
-To rigorously validate our hypothesis, we utilize the rolling window strategy to evaluate the performance of different approaches on both datasets. We begin by producing and evaluating $12$-steps-ahead coherent forecasts using the first $96$ observations. The training set is then increased by one observation and new forecasts are obtained. The procedure is repeated until the last $12$ observations are used for evaluation. Finally, we can obtain $121$ RMSSE (January 2006 - January 2016) for the tourism dataset and $145$ RMSSE (January 2007 - January 2019) for the mortality dataset.  Two approaches are utilized to compare and present the performance of various approaches on two datasets. The first one is to calculate average RMSSE across all evaluation windows, while the second involves Multiple Comparison with the Best (MCB) test (\citealp{koningM3CompetitionStatistical2005}), which computes the average ranks of different approaches across all evaluation windows and assess whether they are statistically different. 
+RMSSE is symmetric, independent of the data scale, and thus suitable for evaluating hierarchical forecasts (\citealp{athanasopoulosEvaluationHierarchicalForecasts2023}). It should be noted that the denominator of our RMSSE measure slightly differs from that used in \cite{makridakisM5AccuracyCompetition2022}; we replace the naive forecast, with the seasonal naive forecast since the time series in our applications exhibit monthly seasonality. 
+As a single measure of accuracy, we take the average RMSSE across all series. Since we will be comparing hierarchies with different structures (thus different middle level series), this average only includes top and bottom level series, both of which are guaranteed to be present in all hierarchies.
 
+%To rigorously validate our hypothesis, we utilize the expanding window strategy to evaluate the performance of different approaches. For both datasets, starting with the first $96$ observations, we produce $12$-step-ahead forecasts. The training window is then increased by one observation and new forecasts are obtained. This procedure is repeated until the training window comprises all but the  last $12$ observations. Finally, we can obtain $121$ $12$-step-ahead forecasts (January 2006 - January 2016) for the tourism dataset and $145$ $12$-step-head forecasts (January 2007 - January 2019) for the mortality dataset. %Then we calculate the RMSSE for each of the expanding windows and take the average. %the reconciled forecasts. 
 
-\section{Natural hierarchy}\label{sec:natural}
+%Two approaches are utilized to summarise the overall performance across all evaluation windows. The first is to calculate average RMSSE across all evaluation windows. The second involves the Multiple Comparison with the Best (MCB) test (\citealp{koningM3CompetitionStatistical2005}), which computes the average ranks of different approaches across all evaluation windows and assess whether they are statistically different. 
 
-\subsection{Natural hierarchy vs two-level hierarchy}
-\label{subsec:n_vs_twolevel}
-In this subsection, we compare the performance of the natural hierarchy against the two-level hierarchy to address the first research question. We expect that natural hierarchy would demonstrate superior performance over the two-level hierarchy, as more time series are included in the reconciliation process.
-Following the evaluation procedure introduced in Section~\ref{subsec:evaluation}, Table~\ref{tab:P1} compares forecast accuracy of the natural hierarchy and the two-level hierarchy on tourism and mortality datasets. Average RMSSE is calculated across all evaluation windows. 
-%in terms of average RMSSE across all evaluation windows. 
-The asterisk in table indicates significant difference according to MCB test.
-Table~\ref{tab:P1} shows that natural hierarchy significantly outperforms the two-level hierarchy on both datasets.  It confirms our hypothesis that natural hierarchy improves forecast performance over a two-level hierarchy.
+We utilize the expanding window strategy to evaluate the performance of different approaches with a forecast horizon of 12 months (one year). For both datasets, the first window contains $96$ training observations. The training window is then increased by one observation and new 12-step ahead forecasts are obtained. This procedure is repeated until the training window comprises all but the  last $12$ observations. This results in $121$ $12$-step-ahead forecasts (January 2006 - January 2016) for the tourism dataset and $145$ $12$-step-head forecasts (January 2007 - January 2019) for the mortality dataset. %Then we calculate RMSSE for each of the reconciled forecasts. 
 
-\begin{table}[h!]
-    \centering
-    \caption{\label{tab:P1} Performance of natural and two-level hierarchies in terms of average RMSSE ($\times 10^{-2}$) across all evaluation windows on both datasets. Column-wise minimum values are displayed in bold. Asterisk (*) indicates significant difference according to MCB test.}
-    \begin{tabular}{lll}
-    \toprule
-        Method & tourism & mortality \\ \midrule
-        Natural & $\bold{69.13}^*$ & $\bold{75.01}^*$ \\ 
-        Two-level & $69.43$ & $75.28$ \\ \bottomrule
-    \end{tabular}
+To assess whether differences in forecast performance are statistically significant, we employ the Multiple Comparison with the Best (MCB) test (\citealp{koningM3CompetitionStatistical2005}). This test is based on the average ranks of different approaches across all evaluation windows and controls for multiple comparisons. 
+
+% \subsection{Natural hierarchy vs two-level hierarchy}
+% \label{subsec:n_vs_twolevel}
+% In this subsection, we compare the performance of natural hierarchy against the two-level hierarchy to address the first research question. We expect that the natural hierarchy would demonstrate superior performance over the two-level hierarchy, as more time series are included in the reconciliation process.
+% \begin{table}[h!]
+%     \centering
+%     \caption{\label{tab:P1} Performance of natural and two-level hierarchies in terms of average RMSSE across all evaluation windows on both datasets. Column-wise minimum values are displayed in bold. Asterisk (*) indicates significant difference according to MCB test.}
+%     \begin{tabular}{lll}
+%     \toprule
+%         Method & tourism & mortality \\ \midrule
+%         Base & $0.6945$ & $0.7530$ \\
+%         Two-level & $0.6943$ & $0.7528$ \\ 
+%         Natural & $\bold{0.6913}^*$ & $\bold{0.7501}^*$ \\ \bottomrule
+%     \end{tabular}
     
-\end{table}
+% \end{table}
 
 
+% Following the evaluation procedure introduced in Section~\ref{subsec:evaluation}, Table~\ref{tab:P1} compares forecast accuracy of the natural hierarchy, the two-level hierarchy and base forecasts on tourism and mortality datasets. Average RMSSE is calculated across all evaluation windows. 
+% %in terms of average RMSSE across all evaluation windows. 
+% The asterisk in table indicates significant difference according to MCB test.
+% It is shown that the natural hierarchy significantly outperforms the two-level hierarchy and base forecasts on both datasets.  It confirms our hypothesis that natural hierarchy improves forecast performance over a two-level hierarchy. 
 
-\subsection{Permutation of the natural hierarchy}
-\label{subsec:permutation}
-
-There are two potential contributors to the improvement in accuracy achieved by the natural hierarchy. First, natural hierarchy could tend to group time series with similar attributes together. 
-It is possible that these series share similar trend and seasonality pattern, similar features, strong correlations, or others, resulting in middle-level series with strong signals and easy to forecast.
-Thus, total and bottom-level series can borrow strength from these middle-level series during reconciliation. 
-We refer to this aspect as ``grouping''.
-Second, there are more series and more base forecasts to be combined during reconciliation, which leads to reduced uncertainty (\citealp{petropoulosExploringSourcesUncertainty2018a}) and improved reconciled forecasts. How the series are grouped is however irrelevant. We refer to this aspect as ``structure''. 
-
-To systematically explore these two aspects, we introduce a permutation hierarchy construction method.
-Given a hierarchy tree, such as the natural hierarchy, the proposed approach constructs new hierarchies by randomly permuting the leaves. Recall that $\boldsymbol{A}$ is matrix consisting of $0$ and $1$ and represents the mapping from bottom-level time series to aggregated-level time series. In other words, it shuffles the columns of the constraint matrix $\boldsymbol{A}$ of the given hierarchy. This method yields random ``twin'' hierarchies with the same tree structure but different groupings. 
-By generating forecasts using the twin hierarchies, we are able to eliminate the influence of grouping and focus specifically on structure. 
-If the random twin hierarchies significantly outperform the original counterpart, it suggests that structure holds greater importance than grouping, and vice versa. Figure~\ref{fig:aggcluster_random} shows an example of this approach, where the right hierarchy is a ``twin'' of the left hierarchy.
-
-\begin{figure}
-    \centering
-    \includegraphics[width=0.8\textwidth]{figures/aggcluster_random.pdf}
-    
-    \[
-    \begin{bmatrix}
-    1 & 1 & 1 & 1\\
-    1 & 1 & 1 & 0 \\
-    1 & 1 & 0 & 0 \\
-    & I_4 & & 
-    \end{bmatrix}
-    \quad
-    \rightarrow
-    \quad
-    \begin{bmatrix}
-    1 & 1 & 1 & 1\\
-    0 & 1 & 1 & 1 \\
-    0 & 1 & 0 & 1 \\
-    & I_4 & & 
-    \end{bmatrix}
-    \]
-
-\caption{\label{fig:aggcluster_random}Examples of permutation of a given hierarchy. Right hierarchy is obtained by shuffling the leaves of left hierarchy. The upper part displays the hierarchy trees, and the lower part displays the corresponding summing matrices.}
-\end{figure}
-
-
-\subsection{Natural hierarchy versus its twins}
-\label{subsec:n_vs_pn}
-
-This subsection compares the performance of natural hierarchy and its random twins on mortality and tourism datasets.
-For each dataset, we first randomly generate $100$ permutations of the bottom-level series, which are applied to the natural hierarchy, producing $100$ twin hierarchies. Performances of natural hierarchy and its twins are compared using the evaluation process described in Section~\ref{subsec:evaluation}.
-
-Figures~\ref{fig:P2_tourism} and~\ref{fig:P2_mortality} display the MCB test results for the tourism dataset and mortality, respectively. 
-In order to save space, we only display the average rank labels for the natural hierarchy and $5$ twins. The grey zone indicates the confidence interval of the average rank of natural hierarchy. Any hierarchy whose confidence interval does not overlap with the grey zone is either significantly better or worse than the natural hierarchy. 
-
-It is immediately clear that across both datasets, the natural hierarchy shows no significant outperformance compared to its random twins. 
-On the tourism dataset, it ranks the $5$th, performing indistinguishably from $32$ twins but significantly better than the remaining $68$.
-On the other hand, the performance difference is much smaller for the mortality dataset, where most twins perform insignificantly from the natural hierarchy. There are even three twin hierarchies significantly better than natural hierarchy.
-These results suggest that the natural hierarchy of tourism dataset may be ``smarter'' compared to that of mortality dataset.
-
-
-\begin{figure}[!ht]
-    \centering
-    \includegraphics[width=0.8\textwidth]{figures/hierarchy_rmsse/tourism/P2_natural_vs_pn_h12.pdf}
-    \caption{\label{fig:P2_tourism}Average ranks and 95\% confidence intervals for natural hierarchy and its $100$ twins on the tourism dataset.}
-\end{figure}
-
-\begin{figure}[!ht]
-    \centering    \includegraphics[width=0.8\textwidth]{figures/hierarchy_rmsse/mortality/P2_natural_vs_pn_h12.pdf}
-    \caption{\label{fig:P2_mortality}Average ranks and 95\% confidence intervals for natural hierarchy and its $100$ twins on the mortality dataset.}
-\end{figure}
-
-\section{Clustering-based hierarchy}
-\label{sec:clustering}
-
-Given that ``structure'' of natural hierarchy is the primary contributor to the performance improvement, we are interested in if better groupings can be constructed via clustering and become more critical than structure. 
-We first review existing literature on clustering-based forecast reconciliation, and then describe the clustering techniques involved in our paper, followed by empirical results on mortality and tourism dataset.
 
 \subsection{Cluster hierarchies vs benchmarks}
-\label{subsec:P3_benchmark}
-Table~\ref{tab:P3_rmsse} shows the accuracy of benchmarks and $12$ cluster hierarchies in terms of average RMSSE across all evaluation windows using the evaluation process described in Section~\ref{subsec:evaluation}.  
+\label{subsec:cluster_vs_benchmarks}
+
+
+ 
+Table~\ref{tab:P3_rmsse} compares the accuracy of reconciled forecasts when using hierarchies obtained from the $12$ clustering-based hierarchies outlined in Table~\ref{tab:P3_methods}. The base forecasts, as well as the reconciled forecasts from the two-level hierarchy (only containing top- and bottom- level time series) and from the natural hierarchy, are included as benchmarks.
+%using the evaluation process described in Section~\ref{subsec:evaluation}.  
 The MCB test results are presented in Figure~\ref{fig:P3_mcb_benchmark}.
-On the tourism dataset, all cluster hierarchies outperform the two-level hierarchy, with ten showing significant improvement.
-While on the mortality dataset, only five cluster hierarchies surpass the two-level hierarchy in average RMSSE and eight do so in terms of average ranks. 
-However, none of these differences are statistically significant. 
-The inferiority of three $k$-medoids based cluster hierarchies highlights the importance of choosing an appropriate clustering technique.
-\begin{table}[h!]
-    \centering
-    \caption{\label{tab:P3_rmsse}Performance of cluster hierarchies and benchmark hierarchies in terms of average RMåSSE($\times 10^{-2}$) across all evaluation windows on both datasets. Column-wise minimum values are displayed in bold.}
-    \begin{tabular}{lll}
-    \toprule
-        Method & tourism & mortality \\ \midrule
-        Base & 69.452 & 75.295 \\ 
-        Two-level & 69.437 & 75.281 \\ 
-        Natural & 69.132 & 75.008 \\ 
-        TS-HC-EUC & 69.224 & 75.396 \\ 
-        TS-HC-DTW & 69.108 & \textbf{74.959} \\ 
-        TS-ME-EUC & 69.392 & 75.279 \\ 
-        TS-ME-DTW & 69.404 & 75.278 \\ 
-        TSF-HC-EUC & \textbf{69.086} & 75.091 \\ 
-        TSF-ME-EUC & 69.385 & 75.488 \\ 
-        ER-HC-EUC & 69.196 & 75.068 \\ 
-        ER-HC-DTW & 69.121 & 75.324 \\ 
-        ER-ME-EUC & 69.380 & 75.303 \\ 
-        ER-ME-DTW & 69.420 & 75.308 \\ 
-        ERF-HC-EUC & 69.099 & 75.010 \\ 
-        ERF-ME-EUC & 69.417 & 75.325 \\ \bottomrule
-    \end{tabular}
-\end{table}
-
-
-\begin{table}[!ht]
-    \centering
-    \caption{\label{tab:P3_features}Four trend and seasonality features for the tourism dataset and mortality dataset.}
-    \begin{tabular}{lll}\toprule
-        Features & mortality & tourism \\ \midrule
-        $\gamma$ parameter of Holt-Winters model & 0.0202 & 0.000165 \\ 
-        The first order seasonal ACF & 0.652 & 0.181 \\ 
-        Strength of trend & 0.757 & 0.156 \\ \bottomrule
-    \end{tabular}
-\end{table}
-
-The varying performance of cluster hierarchies across two datasets can be attributed to the unique characteristics of their bottom-level series.
-The tourism dataset, as shown in Figure~\ref{fig:tourism}, predominately contains volatile and noisy bottom-level time series with weak trend and seasonality. Creating new middle-level time series in this context helps elucidate the underlying pattern which can not be easily captured by bottom-level base forecasting models. 
-On the other hand, bottom-level series in mortality dataset exhibit stronger trend and seasonality patterns, making creating middle-level series less beneficial. Table~\ref{tab:P3_features} summarises several features computed using available data in the last evaluation window, confirming the stronger seasonality and trend presence in the bottom level of mortality dataset. Note that the values are computed by averaging features for all bottom-level time series. The strength of trend is defined as 
-\[
-\text{Strength of trend} = 1-\frac{\text{Var}(e_t)}{\text{Var}(f_t+e_t)},
-\]
-where $e_t$ and $f_t$ are residuals component and smoothed trend component obtained by STL decomposition of the time series (\citealp{tsfeatures}).
 
 \begin{table}[h!]
     \centering
-    \caption{\label{tab:P3_number_series}Average number of middle-level time series for $k$-medoids-based, hierarchical-clustering-based and natural hierarchy in both datasets.}
-    \begin{tabular}{lll}
-    \toprule
-        Approach & mortality & tourism \\ \midrule
-     Natural & 21 & 250 \\ 
-        $k$-medoids clustering & 6.78 & 20.99 \\ 
-        Hierarchical clustering & 96 & 302 \\ \bottomrule
-    \end{tabular}
+\caption{\label{tab:P3_rmsse}Performance of cluster hierarchies and benchmark hierarchies in terms of average RMSSE across all evaluation windows on both datasets. Column-wise minimum values are displayed in bold.}
+\begin{tabular}{lrr}\toprule
+    Approach & tourism & mortality \\ \midrule
+    Base & 0.6945 & 0.7530 \\ 
+    Two-level & 0.6944 & 0.7528 \\ 
+    Natural & 0.6913 & 0.7501 \\ 
+    TS-EUC-ME & 0.6939 & 0.7528 \\ 
+    ER-EUC-ME & 0.6938 & 0.7530 \\ 
+    TSF-EUC-ME & 0.6938 & 0.7549 \\ 
+    ERF-EUC-ME & 0.6942 & 0.7532 \\ 
+    TS-EUC-HC & 0.6922 & 0.7540 \\ 
+    ER-EUC-HC & 0.6920 & 0.7507 \\ 
+    \textbf{TSF-EUC-HC} & \textbf{0.6909} & 0.7509 \\ 
+    ERF-EUC-HC & 0.6910 & 0.7501 \\ 
+    TS-DTW-ME & 0.6940 & 0.7528 \\ 
+    \textbf{TS-DTW-HC} & 0.6911 & \textbf{0.7496} \\ 
+    ER-DTW-ME & 0.6942 & 0.7531 \\ 
+    ER-DTW-HC & 0.6912 & 0.7532 \\ \bottomrule
+\end{tabular}
+
 \end{table}
 
-The hierarchies based on hierarchical clustering outperforms the hierarchies based on $k$-medoids when using the same representation and distance metric, e.g., ``TSF-HC-EUC'' outperforms ``TSF-ME-EUC''.
-This superiority is attributed to hierarchical clustering generating a greater number of middle-level time series than $k$-medoids, significantly enhancing the benefits of enriched structure.
-Table~\ref{tab:P3_number_series} summarises average number of middle-level series across all evaluation windows for natural, $k$-medoids-based and hierarchical clustering-based hierarchy. 
-Interestingly, the natural hierarchy shows competitive accuracy compared to hierarchical clustering-based hierarchies on both datasets, despite having fewer middle-level series.
-Regarding the superiority of any specific representation or distance metric, no consistent findings emerge. 
-   
 
+We have the following observations from Table~\ref{tab:P3_rmsse} and Figure \ref{fig:P3_mcb_benchmark}. In terms of average RMSSE, for both datasets, the base forecasts provide the worst forecast performance. The natural hierarchies provide better results than the base forecasts and the two-level hierarchies, and comparable results with cluster hierarchies. In the case of the tourism dataset, all twelve clustering-based hierarchies outperform the simple two-level hierarchy. For ten out of twelve of these methods, the prediction intervals for the average ranks do not overlap with the two-level hierarchy, indicating significantly superior performance.
+For the mortality dataset, five cluster hierarchies surpass the two-level hierarchy in terms of average RMSSE. However,  not even the best clustering method is significantly more accurate than the two-level hierarchy based on the MCB test. %Across both datasets, the methods based on hierarchical clustering tend to outperform those based on $k$-medoids clustering, highlighting the importance of choosing an appropriate clustering technique.
 
-\begin{figure}
+\begin{figure}[h!]
     \centering
+    %\vspace{-0.1in}
     \includegraphics[width=0.45\textwidth]{figures/hierarchy_rmsse/tourism/P3_mcb_benchmarks_h12.pdf}
     \includegraphics[width=0.45\textwidth]{figures/hierarchy_rmsse/mortality/P3_mcb_benchmarks_h12.pdf}
     \caption{\label{fig:P3_mcb_benchmark}Average ranks and 95\% confidence intervals for twelve cluster hierarchies and three benchmarks on tourism dataset (left) and mortality dataset (right) based on MCB test.}
 \end{figure}
 
 
+
+The varying performance of cluster hierarchies across two datasets can be attributed to the unique characteristics of their bottom-level series.
+The tourism dataset, as shown in Figure~\ref{fig:tourism}, predominately contains volatile and noisy bottom-level time series with weak trend and seasonality (see also in  Table~\ref{tab:features}). Arguably, creating new middle-level time series in this context helps elucidate the underlying pattern which can not be easily captured by bottom-level base forecasting models due to a low signal-to-noise ratio. 
+On the other hand, the bottom-level series in mortality dataset exhibit stronger trend and seasonality patterns, meaning that the addition of middle-level series is less beneficial.
+
+\begin{table}[h!]
+    \centering
+    \caption{\label{tab:P3_number_series}Average number of middle-level time series resulting from $k$-medoids clustering, hierarchical clustering, and the natural hierarchy for both datasets.}
+    \begin{tabular}{lrr}
+    \toprule
+        Approach &  tourism& mortality \\ \midrule
+     Natural &250  & 21 \\ 
+        $k$-medoids clustering &  21&  7\\ 
+        Hierarchical clustering &302   & 96\\ \bottomrule
+    \end{tabular}
+\end{table}
+%20.99&  6.78
+
+We also observe that the hierarchies constructed via hierarchical clustering algorithms outperform the hierarchies based on $k$-medoids when using the same representation and distance metric. As an example, ``TSF-EUC-HC'' outperforms ``TSF-EUC-ME''.
+This superior performance can be attributed to hierarchical clustering generating a greater number of middle-level time series than $k$-medoids.
+%, significantly enhancing the benefits of enriched structure.
+Table~\ref{tab:P3_number_series} summarizes the average number of middle-level series across all evaluation windows for natural, $k$-medoids, and hierarchical clustering hierarchies. 
+Interestingly, the natural hierarchy shows competitive accuracy compared to hierarchical clustering methods on both datasets, despite having fewer middle-level series. However, it should be noted that natural hierarchies may not always exist. Regarding the superiority of any specific representation or distance metric, no consistent findings emerge. It shows that while it is possible to improve forecast accuracy via clustering, the performance of different clustering methods largely depends on the specific data in consideration.
+
+
+
+
+
+
+
+%\section{Investigating driving factors: grouping and structure} 
+
+\section{Disentangling  grouping and structure}
+\label{sec:permutation}
+
+These results in Section~\ref{subsec:cluster_vs_benchmarks} raise the question of why hierarchies augmented with middle levels improve upon the two-level hierarchy. There are two possible explanations.  On the one hand, it could be argued that by ``grouping'' together series with similar characteristics, certain signals are enhanced, leading to improved forecasting performance.
+%It is possible that by aggregating those series that share similar trends, seasonal patterns, or features, we enhance the signals in the middle-level series and improve their forecastability. Consequently, the total and bottom-level series can borrow strength from these middle-level series during the reconciliation process. 
+%The second possible explanation assumes that it is the ``structure'' -- number of middle-level series, the depth of the hierarchy, the distribution of group sizes in the middle layer(s), or a combination of all these factors, that lead to the improved forecast accuracy. On the other hand, the exact grouping of times series is relatively inconsequential.
+Alternatively, it could be argued that the improved forecasting performance is a by-product of the ``structure'' of the hierarchy, \textit{i.e.} the number of middle-level series, the depth of the hierarchy, the distribution of group sizes in the middle layer(s), or a combination of all these factors.
+\subsection{Permutation hierarchy construction}
+\label{subsec:permutation}
+
+ 
+
+
+%there are more series and more base forecasts to be combined during reconciliation, which leads to reduced uncertainty (\citealp{petropoulosExploringSourcesUncertainty2018a}) and improved reconciled forecasts. 
+
+To assess whether ``grouping'' or ``structure'' has relatively more importance, we consider a procedure based on permutation. For ease of exposition, we will describe this procedure for the natural hierarchy, although it is applied equally to hierarchies where middle level series are constructed using clustering algorithms. First, the structure of the natural hierarchy is kept fixed. A new ``twin'' hierarchy is constructed by randomly permuting the bottom level series\footnote{This can also be achieved by shuffling the columns of $\boldsymbol{C}$.}. An example is shown in Figure~\ref{fig:aggcluster_random}.
+
+%To further explore these two concepts, we introduce a method for constructing permutation hierarchies.
+%Given a hierarchy tree, such as the natural hierarchy, the proposed approach constructs new hierarchies by randomly permuting the leaf nodes of the hierarchy. Recall that $\boldsymbol{A}$ is a matrix consisting of $0$ and $1$, and represents the mapping from bottom-level time series to aggregated-level time series. The idea behind permuting a given hierarchy is to shuffle the columns of matrix $\boldsymbol{A}$ of the original hierarchy. This method creates random ``twin'' hierarchies with the same tree structure but different groupings rules. 
+%By comparing forecast accuracy across permuted hierarchies, we are able to eliminate the influence of grouping and focus specifically on the structure of the hierarchy. 
+%If the random twin hierarchies significantly outperform the original counterpart, it suggests that structure holds greater importance than grouping, and vice versa.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/aggcluster_random.pdf}
+\caption{\label{fig:aggcluster_random}Examples of a given hierarchy and its ``twin''. }
+\end{figure}
+
+Suppose the forecast performance of the natural hierarchy can be explained by ``grouping''. In this case, the ``twin'' hierarchy, with a grouping formed at random, should perform significantly worse than the natural hierarchy. Alternatively, suppose the ``twin'' performs similarly to the natural hierarchy. In this case, the critical factor in improved forecast performance is the structure of the hierarchy, which is the same for both the natural hierarchy and its twin. To rule out the possibility that a random twin with exceptionally good (or bad) grouping is generated by chance, in all cases we consider 100 random twin hierarchies.
+
+
+%Figure~\ref{fig:aggcluster_random} shows an example of permutation hierarchy construction, where the right hand side hierarchy is obtained by shuffling the leaves of left hand side hierarchy. The upper part displays the hierarchy trees, and the lower part displays the corresponding summing matrices. 
+%is a ``twin'' of the left hierarchy.\\
+%For the corresponding changes in matrix $\boldsymbol{A}$, we have the following results: 
+
+ %   \[
+ %   \begin{bmatrix}
+ %   1 & 1 & 1 & 1\\
+ %   1 & 1 & 1 & 0 \\
+ %   1 & 1 & 0 & 0 \\
+ %   & I_4 & & 
+ %   \end{bmatrix}
+ %   \quad
+ %   \rightarrow
+ %   \quad
+ %   \begin{bmatrix}
+ %   1 & 1 & 1 & 1\\
+ %   0 & 1 & 1 & 1 \\
+ %   0 & 1 & 0 & 1 \\
+ %   & I_4 & & 
+ %   \end{bmatrix}
+ %   \]
+%\vspace{0.01in}
+
+
+\subsection{Natural hierarchy vs its twins}
+
+\label{subsec:n_vs_pn}
+
+%This subsection compares the performance of natural hierarchy and its random twins on mortality and tourism datasets.
+%For each dataset, we randomly generate $100$ permutations of the leaf nodes in the natural hierarchy, producing $100$ twin hierarchies. Performances of natural hierarchy and its twins are compared using the MCB test described in Section~\ref{subsec:evaluation}.
+
+Figure~\ref{fig:P2_tourism} compares the natural hierarchy to 100 twins using the MCB test. For brevity, we only display the average rank labels for the natural hierarchy and $5$ of its twin hierarchies\footnote{Note that ``82 - 73.74'' represents that the $82$nd permutation of the hierarchy which has an average rank of 73.74. The same convention applies to the labels of the $y$-axis for Figures \ref{fig:P3_tourism_c_vs_pc},  \ref{fig:simu_P3_benchmarks}, and \ref{fig:P4_a_vs_pa}.}. The figure is adjusted so that the gray band is around the 95\% confidence interval for the natural hierarchy rather than the best performing twin. Any hierarchies whose confidence interval overlaps with the gray zone is not significantly better or worse than the natural hierarchy. 
+
+\begin{figure}[h!]
+    \centering
+\includegraphics[width=0.47\textwidth]{figures/hierarchy_rmsse/tourism/P2_natural_vs_pn_h12.pdf}
+    \centering    \includegraphics[width=0.47\textwidth]{figures/hierarchy_rmsse/mortality/P2_natural_vs_pn_h12.pdf}
+    \caption{\label{fig:P2_tourism}Average ranks and 95\% confidence intervals for natural hierarchy and its $100$ twins, tourism dataset (left) and mortality dataset(right).}
+\end{figure}
+ 
+
+It is clear that for both datasets, the natural hierarchy does not significantly outperform a large proportion of its random twins. 
+On the tourism dataset, the natural hierarchy ranks the $5$th. Its performance is statistically indistinguishable from 32 of its twins, but significantly better than the remaining 68. The difference in forecast performance for the natural hierarchy and its twins is even less pronounced for the mortality dataset. As shown in right panel of Figure~\ref{fig:P2_tourism}, the performance of the natural hierarchy is statistically indistinguishable from most of its twins and, there are three twin hierarchies significantly better than the natural hierarchy. %\textbf{These results suggest that the natural hierarchy of tourism dataset may be ``smarter'' compared to that of mortality dataset.} 
+In both datasets, and particularly for the mortality dataset, we conclude that the ``structure'' of the natural hierarchy is the primary contributor to the improvement in forecast accuracy over the two-level hierarchy.
+
+
+
 \subsection{Cluster hierarchy vs its twins}
 \label{subsec:P3_c_vs_pc}
 
-Results in Section~\ref{subsec:P3_benchmark} demonstrate that cluster hierarchy is able to improve forecast performance compared to natural hierarchy and two-level hierarchy. 
-We are also interested in how ``structure'' and ``grouping'' contribute to these improvements. Following the comparison in Section~\ref{subsec:n_vs_pn}, we compare the best performing cluster hierarchy with its $100$ random twins. 
-Note that we choose the best performing approach according to average RMSSE shown in Table~\ref{tab:P3_rmsse}.
+The result in Section \ref{subsec:n_vs_pn} suggesting that ``structure'' is a more important contributor to ``grouping'' may arise since the grouping for the natural hierarchy is not selected in a data-driven fashion. %selected according to characteristics of the data, rather than in a data-driven fashion.} 
+To assess whether clustering methods select a better ``grouping'', we compare the best-performing clustering-based hierarchies (TSF-EUC-HC and TS-DTW-HC for tourism and mortality, respectively) with their random twins.  Recall that Section~\ref{subsec:cluster_vs_benchmarks} demonstrates that the clustering methods can outperform the natural hierarchy and two-level hierarchy. 
+%We are also interested in how ``structure'' and ``grouping'' contribute to these improvements. Following the comparison in Section~\ref{subsec:n_vs_pn}, we compare the best performing cluster hierarchy with its $100$ random twins. 
+%Note that we choose the best performing approach according to average RMSSE shown in Table~\ref{tab:P3_rmsse}.
 
-The MCB test results for the tourism dataset and mortality dataset are shown in Figure~\ref{fig:P3_tourism_c_vs_pc} and Figure~\ref{fig:P3_mortality_c_vs_pc}, respectively.
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.47\textwidth]{figures/hierarchy_rmsse/tourism/P3_cluster_vs_pc_h12.pdf}
+    \includegraphics[width=0.47\textwidth]{figures/hierarchy_rmsse/mortality/P3_cluster_vs_pc_h12.pdf}
+    %best performing cluster hierarchy
+    \caption{\label{fig:P3_tourism_c_vs_pc}Average ranks and 95\% confidence intervals for best performing clustering approach and its $100$ twins, tourism dataset (left) and mortality dataset (right).}
+\end{figure}
+
+
+The MCB test results for the tourism dataset and mortality dataset are shown in Figure~\ref{fig:P3_tourism_c_vs_pc}.
 We observe that in both datasets, the best performing clustering approach does not yield significantly better results than its random twins. 
-Indicatively, the best cluster approach of mortality dataset ranks nearly in the middle of its random twins, indicating that structure instead of grouping dominates the performance. 
-However, the best cluster approach of tourism dataset ranks first and significantly outperforms $70$ of its random twins. This suggests a combination effect of grouping and structure.
+The best cluster approach of mortality dataset ranks nearly in the middle of its random twins, indicating that once again structure rather than grouping is the main driver of improvement in forecast accuracy. 
+On the other hand, the best performing clustering method for the tourism data is statistically indistinguishable from 30 of its random twins, despite being the best in terms of the mean ranks. One can argue that for tourism dataset, a data-driven method for grouping time series plays a more prominent role in forecast improvement. %does appear to contribute the . 
+%be a major contributor.
+This may be attributed to the noisier nature of bottom level tourism data, suggesting that similar weak signals are strengthened when aggregated.
+However, there is still roughly a 30\% chance that a random twin performs similarly, once again highlighting that structure is the main contributor to improved forecast performance.
 
-Overall, Table~\ref{tab:P3_rmsse}, Figures~\ref{fig:P3_tourism_c_vs_pc} and \ref{fig:P3_mortality_c_vs_pc} suggest that while it is possible to construct a ``smart'' hierarchical structure that improves forecast reconciliation performance, this possibility highly depends on the dataset characteristic and the time series cluster methods employed, making it a challenging objective to achieve. On the other hand, no matter the ``smarter'' hierarchy is construed or not, enriched structure contributes to the performance improvement.
-
-
-\begin{figure}[!h]
-    \centering
-    \includegraphics[width=0.7\textwidth]{figures/hierarchy_rmsse/tourism/P3_cluster_vs_pc_h12.pdf}
-    \caption{\label{fig:P3_tourism_c_vs_pc}Average ranks and 95\% confidence intervals for best performing cluster hierarchy TSF-HC-EUC and its $100$ twins on the tourism dataset.}
-\end{figure}
-
-\begin{figure}[!h]
-    \centering
-    \includegraphics[width=0.7\textwidth]{figures/hierarchy_rmsse/mortality/P3_cluster_vs_pc_h12.pdf}
-    \caption{\label{fig:P3_mortality_c_vs_pc}Average ranks and 95\% confidence intervals for best performing cluster hierarchy TS-HC-DTW and its $100$ twins on the mortality dataset.}
-\end{figure}
+%Overall, Table~\ref{tab:P3_rmsse} and Figure~\ref{fig:P3_tourism_c_vs_pc} suggest that while it is possible to construct a ``smart'' hierarchical structure that improves forecast reconciliation performance, this possibility highly depends on the dataset characteristic and the time series cluster methods employed, making it a challenging objective to achieve. On the other hand, no matter the ``smarter'' hierarchy is construed or not, enriched structure contributes to the performance improvement.
 
 
 
+
+
+%\section{Investigating driving factors: simulation cases}
 \section{Simulation study}
 \label{sec:simulation}
+%The experiments in Section~\ref{sec:clustering} show the difficulty of constructing a smart hierarchy through clustering. 
+The main conclusion of Section~\ref{sec:permutation} is that hierarchies with more middle level series improve forecast accuracy due to structure rather than grouping. In so far as grouping may be a factor, this may be due to aggregating similar weak signals into stronger signals. To further test this conjecture, we consider a simulation study. Time series are generated that form clear clusters according to their trend and seasonality. These are then aggregated into middle level series, based on the known characteristics of each time series. The purpose of this is two-fold. First, in a simulated setting, the ``true'' clusters can be known, which guards against the risk that a given clustering algorithm fails to identify the correct clusters. Second, a simulation study guards against the shortcoming of any cluster analysis, namely that clusters will always be found even where they are not present. Such spurious clusters may explain the similar forecasting performance of cluster-based hierarchies with their randomly permuted twins. The simulation study thus sets up an ideal scenario, where grouping can potentially dominate structure as the factor explaining improved forecast performance.
 
-The experiments in Section~\ref{sec:clustering} show the difficulty of constructing a smart hierarchy through clustering. However, it is possible that the clustering approaches we used are unable to detect clusters underlying the dataset. 
-In this section, we simulate a scenario where ideal clusters can be detected and investigate how the two factors affect performance in this secenario.
+
+%The experiments in Section~\ref{subsec:cluster_vs_benchmarks} and Section~\ref{subsec:P3_c_vs_pc} illustrate the potential of using clustering-based methods to construct hierarchies for further improvement in forecast accuracy. 
+
+%However, no evidence was found that clustering-based hierarchies are significantly better than the natural hierarchies. To avoid the concern that clusters found in the empirical datasets are spurious, we now consider a simulation study such that the `ground truth clusters' are known. 
+%However, it is possible that the clustering approaches we used are unable to detect clusters underlying the dataset. 
+%In this section, we simulate a scenario where ideal clusters can be detected and investigate how the two factors affect performance in this scenario.
 
 
 \subsection{Simulation design}
 
 %\subsubsection{Time series generation}
 
-We assume the bottom-level time series follow an additive time series pattern with a data generating process described as follows:
+We construct $m=120$ bottom-level time series in an additive manner, each following a data generating process described as follows:
 \begin{equation}
     \label{simu:DGP}
     \begin{aligned}
-    Y_t &= L_t + S_t + \xi_t \\
-    S_t &= S_{t~\text{mod}~s} \\
-    L_t &= \alpha t + \varepsilon_t,
+    Y_t &= L_t + S_t + \xi_t, \\
+        L_t &= \alpha t + \varepsilon_t,\\
+    S_t &= \begin{cases}\beta\quad\textrm{if $t-\delta$ is even}\\\gamma\quad\textrm{if $t-\delta$ is odd}\end{cases}\,,
     \end{aligned}
 \end{equation}
-where $L_t$ represents the trend term which increases or decreases over time at a slope of $\alpha$. The seasonal component, denoted by $S_t$, is repeating and deterministic with a cycle of length $s$. Both $\xi_t$ and $\varepsilon_t$ are white noises.
+where $L_t$ represents the trend term that increases or decreases over time with slope $\alpha$. We set $\alpha$ to 0.001, $-0.002$, and 0 so that exactly one third of the bottom level series have increasing, decreasing, and no trend respectively. The seasonal pattern is determined by $S_t$. It is deterministic with a seasonal period of 2, hitting a peak $\beta$ drawn uniformly from [2, 3], and a trough $\gamma$ drawn uniformly from [0, 1]. The parameter $\delta$ controls whether a time series has its seasonal peak for odd values of $t$ or even values of $t$, which we refer to as ``odd'' and ``even'' seasonality respectively. We set $\delta=0$ (even seasonality) for exactly half of the series and $\delta=0$ (odd seasonality) for the other half of the series. Both $\xi_t$ and $\varepsilon_t$ are white noise with the variance of $\xi_t$ set to 0.25 and the variance of $\varepsilon_t$ set to $2.5\times 10^{-5}$ and $4.9\times 10^{-5}$ for increasing trend and decreasing trend, respectively. The combination of three different trends with two different patterns of seasonality leads to six clusters as described in Table~\ref{table:simu_params}.% For series with no trend, $L_t$ = 0, and there is no $\varepsilon_t$. %\todo{What about no trend? For no trend, $L_t$ = 0, there is no $\varepsilon_t$}. 
 
-
-Instead of employing cluster algorithms, we artificially craft $6$ ideal clusters by manipulating the directions of the trend components and patterns of the seasonal components.
-The configurations for each cluster can be found in Table~\ref{table:simu_params}. To simulate an increasing trend, we set the slope $\alpha$ to $0.001$, and for a decreasing trend, we set $\alpha$ to $-0.002$. The variances of the associate white noise $\varepsilon_t$ are set to $2.5\times 10^{-5}$ and $4.9\times 10^{-5}$ for increasing trend and decreasing trend, respectively. For series without trend (``None''), the trend component $L_t$ is set to zero. The terms ``Even'' and ``Odd'' in our setup refer to the positioning of seasonal peak. Specifically, ``Even'' seasonality means that peaks occur at even-numbered positions (e.g., $2, 4, \dots$) of seasonal cycle, with the reverse being true for ``Odd'' seasonality. The values of these seasonal peaks and troughs are randomly drawn from uniform distributions within the ranges of $[2, 3]$ and $[0,1]$, respectively. The variance of $\xi_t$ is set to $0.25$. We generate monthly time series data, ensuring that each cluster contains $20$ distinct time series. For each series, we generate $144$ observations, and the last $12$ observations are reserved for evaluation purpose. Figure~\ref{fig:simu_emps} displays example time series from each cluster, while Figure~\ref{fig:simu_pca} visualizes these generated time series based on the first two principal components extracted from principal component analysis of the series.
-
-\begin{table}
+\begin{table}[h!]
 \caption{\label{table:simu_params}Parameter setting for all clusters in the simulation experiments.}
 \centering
 \begin{tabular}{lcccccc}\toprule
-& Cluster 1 & Cluster 2 & Cluster 3 & Cluster 4 & Cluster 5 & Cluster 6 \\
+& Cluster 1 & Cluster 2 & Cluster 3 & Cluster 4 & Cluster 5 & Cluster 6 \\ \midrule
 Trend & Increase & Increase & None & None & Decrease & Decrease \\
 Seasonality & Odd & Even & Odd & Even & Odd & Even  \\
     \bottomrule
 \end{tabular}
 \end{table}
 
-\begin{figure}
+For each series, we generate $144$ observations, with the last $12$ observations reserved for evaluation. Figure~\ref{fig:simu_emps} displays typical time series from each cluster, while Figure~\ref{fig:simu_pca} is a scatterplot of the first two principal components of the series. It is clear that the simulation design generates distinct clusters.
+
+\begin{figure}[h!]
 \centering
 \includegraphics[width=\textwidth]{figures/simu_example.pdf}
 \caption{\label{fig:simu_emps}Example time series for each cluster in the simulation experiments.}
 \end{figure}
 
-\begin{figure}
+\begin{figure}[h!]
     \centering
-    \includegraphics[width=0.6\textwidth]{figures/simu_pca.pdf}
+    \includegraphics[width=0.65\textwidth]{figures/simu_pca.pdf}
     \caption{\label{fig:simu_pca}Visualization of the generated time series in the simulation experiments.}
 \end{figure}
 
-\subsection{Hierarchies construction}
 
-We consider a two-level hierarchy with a total of $120$ bottom-level series and a single aggregated series, labelled as ``Two-level''. In addition, we examine four cluster hierarchies. Note that we consider multiple cluster hierarchies in order to reflect the real-world scenario where a variety of clustering techniques may be employed. The first cluster hierarchy, ``Cluster'', forms six middle-level series according to the predefined ideal clusters. We then merge clusters with the same trend pattern, resulting in the cluster hierarchy with three clusters, denoted by ``Cluster-trend1''. Similarly, we construct cluster hierarchies ``Cluster-trend2'' and ``Cluster-season'' based on the presence of the trend term and seasonal peak positioning, resulting in $2$ and $3$ middle-level series, respectively.
-Table~\ref{table:simu_params} summarizes the five approaches.
 
-\begin{table}[]
+
+
+
+Various schemes for constructing middle level series can be considered and are summarized in Table~\ref{tab:7}. Middle level series can be constructed according to the value of the $\alpha$ parameter, leading to three clusters, or according to whether the series has a trend or no trend, leading to two clusters. In Table~\ref{tab:7}, these are referred to as Cluster-trend1 and Cluster-trend2 respectively. Middle level series can also be formed on the basis of seasonality (Cluster-season), leading to two clusters, or according to both trend and seasonality leading to six clusters (Cluster-trend-season).
+
+%To simulate an increasing trend, we set the slope $\alpha$ to $0.001$, and for a decreasing trend, we set $\alpha$ to $-0.002$. The variances of the associate white noise $\varepsilon_t$ are set to $2.5\times 10^{-5}$ and $4.9\times 10^{-5}$ for increasing trend and decreasing trend, respectively. For series without trend (``None''), the trend component $L_t$ is set to zero. The terms ``Even'' and ``Odd'' in our setup refer to the positioning of seasonal peak. Specifically, ``Even'' seasonality means that peaks occur at even-numbered positions (e.g., $2, 4, \dots$) of seasonal cycle, with the reverse being true for ``Odd'' seasonality. The values of these seasonal peaks and troughs are randomly drawn from uniform distributions within the ranges of $[2, 3]$ and $[0,1]$, respectively. The variance of $\xi_t$ is set to $0.25$. 
+
+%We generate $120$ bottom level series, ensuring that each cluster contains $20$ distinct time series. 
+
+
+
+
+
+%\subsection{Hierarchy construction}
+
+%We consider a two-level hierarchy with a total of $120$ bottom-level series and a single aggregated series. In addition, we examine four cluster hierarchies. Note that we consider multiple cluster hierarchies in order to reflect the real-world scenario where a variety of clustering techniques may be employed. The first cluster hierarchy, ``Cluster-predefined'', forms six middle-level series according to the predefined clusters. We then merge clusters with the same trend pattern, resulting in the cluster hierarchy with three clusters, denoted by ``Cluster-trend1''. Similarly, we construct cluster hierarchies ``Cluster-trend2'' and ``Cluster-season'' based on the presence of the trend term and seasonal peak positioning, resulting in $2$ and $3$ middle-level series, respectively.
+%Table~\ref{tab:7} summarizes the five approaches.
+
+\begin{table}[h!]
     \centering
+    \caption{\label{tab:simu_methods}Four clustering approaches used in the simulation experiments.}
     \begin{tabular}{ll}\toprule
-        Approaches & Description \\ \midrule
-        Two-level &  The original two-level hierarchy. \\ 
-        Cluster & Cluster hierarchy based on ideal clustering. \\
-        Cluster-trend1 & Cluster hierarchy based on trend patterns. \\
-        Cluster-trend2 & Cluster hierarchy based on existence of trend component. \\
-        Cluster-season & Cluster hierarchy based on seasonality patterns. \\\bottomrule
+        Approach & Description \\ \midrule
+%        Two-level &  A  two-level hierarchy consisting of only bottom and top levels. \\ 
+        Cluster-trend-season & Hierarchy based on trend and seasonal pattern. \\
+        Cluster-trend1 &  Hierarchy based on trend (positive/negative/none). \\
+        Cluster-trend2 & Hierarchy based on trend/no trend. \\
+        Cluster-season & Hierarchy based on seasonal pattern (odd/even). \\\bottomrule
     \end{tabular}
-    \caption{\label{tab:simu_methods}Five approaches used in the simulation experiments.}
+    \label{tab:7}
 \end{table}
 
 
@@ -612,76 +729,91 @@ Table~\ref{table:simu_params} summarizes the five approaches.
 \subsection{Results}
 \label{sec:simu_res}
 
-We repeat the simulation $500$ times and evaluate the results on these $500$ hierarchies following the evaluation procedure introduced in Section~\ref{subsec:evaluation}.
+We replicate the simulation $500$ times and follow the evaluation procedure introduced in Section~\ref{subsec:evaluation}.
 Table~\ref{tab:simu_P3} reports the average RMSSE across all hierarchies, and
-Figure~\ref{fig:simu_P3_benchmarks} presents the MCB test results. The results reveal that most approaches perform better than the base forecasts and the original two-level hierarchy. This outcome indicates that hierarchy construction generally improves forecast reconciliation performance, corroborating our findings reported in Section~\ref{sec:clustering}. 
-Interestingly, the ideal cluster ``Cluter'' achieves second rank, indicating that optimal clustering does not necessarily translate into the best forecast reconciliation performance. 
-
-Furthermore, we are interested in structure or grouping contributes more to the performance improvements. Again, following the random hierarchy construction procedure described in Section~\ref{subsec:permutation}, we compare the ideal cluster with its $100$ random twins. The MCB test result is shown in Figure~\ref{fig:simu_P3_c_vs_pc}. Even if the optimal cluster can be obtained in this simulation, the results are similar to what we found on the mortality dataset, showing that  structure plays a greater role in improving the forecast reconciliation performance. It enforces our belief that the reason of clustering improving performance depends on the dataset characteristics.
+Figure~\ref{fig:simu_P3_benchmarks} presents the MCB test results. The results reveal that most approaches perform better than the base forecasts and the two-level hierarchy. This outcome indicates that hierarchy construction generally improves forecast reconciliation performance, corroborating our findings reported in Section~\ref{subsec:cluster_vs_benchmarks}. 
+Clustering only on the basis of trend yields the best performance, however all clustering schemes are statistically indistinguishable from one another. 
 
 
-\begin{table}[!ht]
+\begin{table}[h!]
     \centering
-    \caption{\label{tab:simu_P3}Performance of cluster hierarchies and benchmark hierarchies in terms of average RMSSE($\times 10^{-2}$) in simulation. Column-wise minimum values are displayed in bold.}
-    \begin{tabular}{ll}\toprule
-        Method & RMSSE \\ \midrule
-        Base & 77.64 \\ 
-        Two-level & 59.71 \\ 
-        Cluster & 59.63 \\ 
-        Cluster-trend1 & \textbf{59.62} \\ 
-        Cluster-trend2 & 59.65 \\ 
-        Cluster-season & 59.65 \\ \bottomrule
+    \caption{\label{tab:simu_P3}Performance of cluster hierarchies and benchmark hierarchies in terms of average RMSSE in simulation. Column-wise minimum values are displayed in bold.}
+    \begin{tabular}{lc}\toprule
+        Approach & Average RMSSE \\ \midrule
+        Base & 0.7764 \\ 
+        Two-level & 0.5971 \\ 
+        Cluster-trend-season & 0.5963 \\ 
+        Cluster-trend1 & \textbf{0.5962} \\ 
+        Cluster-trend2 & 0.5965 \\ 
+        Cluster-season & 0.5965 \\ \bottomrule
     \end{tabular}
 \end{table}
 
-\begin{figure}
+
+\begin{figure}[h!]
     \centering
-    \includegraphics[width=0.6\textwidth]{figures/hierarchy_rmsse/simulation/P3_mcb.pdf}
-    \caption{\label{fig:simu_P3_benchmarks}Average ranks and 95\% confidence intervals for four cluster hierarchies and two benchmarks in simulation based on MCB test.}
+    \vspace{0.1in}\includegraphics[width=0.7\textwidth]{figures/hierarchy_rmsse/simulation/P3_mcb.pdf}
+   \vspace{-0.1in}
+\caption{\label{fig:simu_P3_benchmarks}Average ranks and 95\% confidence intervals for four cluster hierarchies and two benchmarks in simulation based on MCB test.}
 \end{figure}
 
-\begin{figure}
+\begin{figure}[h!]
     \centering
-    \includegraphics[width=0.8\textwidth]{figures/hierarchy_rmsse/simulation/P3_c_vs_pc.pdf}
+\includegraphics[width=0.8\textwidth]{figures/hierarchy_rmsse/simulation/P3_c_vs_pc.pdf}
+    \vspace{-0.1in}
     \caption{Average ranks and 95\% confidence intervals for four the ideal hierarchy and its 100 random twins in simulation based on MCB test.}
+%    \vspace{-0.2in}
     \label{fig:simu_P3_c_vs_pc}
 \end{figure}
 
 
+Having constructed clearly demarcated clusters, we now compare the six cluster hierarchy against 100 of its random twins.  The MCB test result is shown in Figure~\ref{fig:simu_P3_c_vs_pc}. Using the known clusters yields a performance somewhere in the middle of the 100 twins that is statistically indistinguishable from nearly all twins. %\todo{is it really all of them? Yes. In the MCB plot, all elements indistinguishable from the target element (here the Cluster-predefined) have red points}. 
+This arguably provides the most compelling evidence so far on whether improvements in forecast accuracy can be attributed to structure or grouping. It is the process of forming any middle-level series that is more important than aggregating similar time series. This result holds not only for our empirical studies, but also for an example specifically designed to have distinct, known clusters as illustrated in this section.
 
-\section{Combination hierarchies}
+
+
+
+  %\vspace{-0.4in}
+
+
+%\section{Improving performance via forecast combination}
+\section{Forecast combination}
 \label{sec:combination}
 
-The results in Section~\ref{sec:clustering} and Section~\ref{sec:simulation} highlights the possibility of improving forecast reconciliation performance by constructing new middle levels through time series clustering. 
-However, this possibility highly depends on the dataset characteristics and time series approaches used.
-Therefore, the classical problem of selecting the optimal clustering approaches arises.
-Considering the substantial research and empirical evidences in favor of forecast combination over selection (see e.g., \citealp{elliottForecastingEconomicsFinance2016}), we suggest employing combination of forecasts from multiple cluster hierarchies to avoid the uncertainty associated with identifying a best cluster approach.
-Specifically, the reconciled forecasts from multiple hierarchies are combined using equal weights, i.e.,
+The results in Sections~\ref{sec:cluster} and~\ref{sec:simulation} highlight the potential of improving forecast reconciliation performance through the construction of new middle levels series using time series clustering. The selection of the best performing combination of time series representation, distance measure, and clustering algorithm remains an open question. Since the best cluster-based method will heavily depend on the characteristics of the data, %and forecasting method used to obtain bottom level series, 
+we consider averaging forecasts across different hierarchies, as an alternative to hierarchy selection. This is supported by substantial research and empirical evidence in favor of forecast combination over selection (see \textit{e.g.}, \citealp{elliottForecastingEconomicsFinance2016}). Specifically, the reconciled forecasts from multiple hierarchies are combined using equal weights (\citealp{wangForecastCombinations50year2022}), \textit{i.e.},
 \[
   \tilde{\boldsymbol{y}}_{T+h}^{\text{comb}} = \frac{1}{l} \sum_{j=1}^l \tilde{\boldsymbol{y}}_{T+h}^j.
-\] Note that the resulted forecasts are still coherent. 
-While it is possible to employ more complex methods to determine ``optimal'' weights, we adhere to equally-weighted combination due to its simplicity and well-known efficacy (\citealp{wangForecastCombinations50year2022}).
+\] 
+We note that this average can only be carried out using series that are common to all hierarchies, in our case, the top and bottom levels. In this case, since all elements of the average are coherent, any linear combination of these forecasts will also be coherent. 
 
-Following the evaluation procedure introduced in Section~\ref{subsec:evaluation},
-Table~\ref{tab:P4_RMSSE} presents the accuracy in terms of average RMSSE across all evaluation windows for both datasets. Note that we only present accuracies of three benchmarks, the best cluster hierarchies and the combination hierarchy to save space. The MCB test results are shown in Figure~\ref{fig:P4_bench_mcb}. 
-As expected, we observe that on both datasets, forecast combination future improves forecast performance compared to the best performing cluster hierarchy. 
-The improvement on the mortality dataset is more pronounced, with forecast combination significantly outperforms all other approaches.
-\begin{table}[!ht]
+%While it is possible to employ more complex methods to determine ``optimal'' weights, we adhere to equally-weighted combination due to its simplicity and well-known efficacy (\citealp{wangForecastCombinations50year2022}).
+
+%Following the evaluation procedure introduced in Section~\ref{subsec:evaluation,
+
+\begin{table}
     \centering
-    \caption{\label{tab:P4_RMSSE}Performance in terms of average RMSSE($\times 10^{-2}$) on both datasets. Column-wise minimum values are displayed in bold.}
+    \caption{\label{tab:P4_RMSSE}Average RMSSE across six approaches. Column-wise minimum values are displayed in bold.}
     \begin{tabular}{lcc}\toprule
-        Method & tourism & mortality \\ \midrule
-        Base & 69.452 & 75.295 \\ 
-        Two-level & 69.437 & 75.281 \\ 
-        Natural & 69.132 & 75.008 \\ 
-        TS-HC-DTW & 69.108 & 74.959 \\ 
-        TSF-HC-EUC & 69.086 & 75.091 \\ 
-        Combination & \textbf{69.019} & \textbf{74.234} \\ \bottomrule
+       Approach & tourism & mortality \\ \midrule
+        Base & 0.6945 & 0.7530 \\ 
+        Two-level & 0.6944 & 0.7528 \\ 
+        Natural & 0.6913 & 0.7501 \\ 
+        TS-DTW-HC & 0.6911 & 0.7496 \\ 
+        TSF-EUC-HC & 0.6909 & 0.7509 \\ 
+        Combination & \textbf{0.6902} & \textbf{0.7423} \\ \bottomrule
     \end{tabular}
 \end{table}
 
-\begin{figure}[!h]
+% \clearpage 
+
+Table~\ref{tab:P4_RMSSE} presents the accuracy in terms of average RMSSE across all evaluation windows for both datasets. Note that for brevity we only present results for three benchmarks (base, two-level, and natural), the best cluster hierarchy (TS-DTW-HC for the mortality data and TSF-EUC-HC for the tourism data) and the combination hierarchy. The MCB test results are shown in Figure~\ref{fig:P4_bench_mcb}. 
+As expected, we observe that on both datasets, forecast combination improves forecast performance compared to any single hierarchy. 
+The improvement on the mortality dataset is more pronounced, with forecast combination significantly outperforming all other approaches.
+
+\begin{figure}[h!]
     \centering
+    %\vspace{-0.2in}
     \includegraphics[width=0.45\textwidth]{figures/hierarchy_rmsse/tourism/P4_benchmarks_h12.pdf}
     \includegraphics[width=0.45\textwidth]{figures/hierarchy_rmsse/mortality/P4_benchmarks_h12.pdf}
     \caption{Average ranks and 95\% confidence intervals for all approaches on tourism dataset(left) and mortality dataset(right) based on MCB test.}
@@ -689,23 +821,26 @@ The improvement on the mortality dataset is more pronounced, with forecast combi
 \end{figure}
 
 
+
 \subsection{Combination hierarchy vs its random twins}
 
-We are also interested in if combination of cluster hierarchies significantly differ from its random twins. We propose to extend the permutation hierarchy generation approach introduced in Section~\ref{subsec:permutation} to combination hierarchy. 
-First, we apply the same permutations of bottom-level series used in Section~\ref{subsec:P3_c_vs_pc} to all other cluster hierarchies.
-Then for each of the $100$ permutations, the twelve reconciled forecasts obtained from corresponding random twins of cluster hierarchies are combined through equally-weighted combination, resulting $100$ random twins of combination hierarchy.
-The results of MCB test for combination hierarchy and its $100$ random twins on the mortality dataset are presented in Figure~\ref{fig:P4_a_vs_pa}.
-It is not surprising that the combination hierarchy ranks $100$th, given that even the best-performing cluster hierarchy failed to demonstrate absolute superiority.
-This comparison is conducted solely on the mortality dataset, as computing random twins for all cluster hierarchies on the tourism dataset is time-consuming.
-\begin{figure}[h!]
-\vspace{-0.1in}
-    \centering
-    \includegraphics[width=0.75\textwidth]{figures/hierarchy_rmsse/mortality/P4_average_vs_pa_h12.pdf}
-    \caption{\label{fig:P4_a_vs_pa} Average ranks and 95\% confidence intervals for combination of twelve cluster hierarchies and its $100$ random twins on mortality dataset based on MCB test.}
-\end{figure}
+We also consider how the question of grouping versus structure plays out in the case of combinations by extending the permutation approach introduced in Section~\ref{subsec:permutation}. We do so by first permuting the labels of the bottom level series while keeping the hierarchy fixed. The same permutation is used for all hierarchies in a combination. This is then repeated 100 times, yielding 100 ``twins'' of the combination forecast.
+%First, we apply the same permutations of bottom-level series used in Section~\ref{subsec:P3_c_vs_pc} to all other cluster hierarchies.
+%Then for each of the $100$ permutations, the twelve reconciled forecasts obtained from corresponding random twins of cluster hierarchies are combined through equally-weighted combination, resulting $100$ random twins of combination hierarchy.
 
-\clearpage 
-\newpage 
+
+
+The results of MCB test for the combination and its $100$ random twins are presented in Figure~\ref{fig:P4_a_vs_pa} for the mortality dataset\footnote{Note that this experiment has been conducted only on the mortality dataset, as computing random twins for all cluster hierarchies on the tourism dataset is too computationally expensive.}.
+Similar to the results in Section~\ref{sec:permutation}, we find evidence that a large number of random twins do not perform significantly worse than an approach based on clustering. In fact, out of the 100 twins, the combination only performs better than a single twin. This provides the last piece of compelling evidence that the grouping of similar time series, contributes less to improved forecast performance than structure.
+
+\begin{figure}[h!]
+%\vspace{-0.15in}
+    \centering
+    \includegraphics[width=0.6\textwidth]{figures/hierarchy_rmsse/mortality/P4_average_vs_pa_h12.pdf}
+    \vspace{-0.1in}\caption{\label{fig:P4_a_vs_pa} Average ranks and 95\% confidence intervals for combination of twelve cluster hierarchies and its $100$ random twins on mortality dataset based on MCB test.}
+\end{figure}
+%\clearpage 
+%\newpage 
 
 % \subsection{Results on simulation dataset}
 
@@ -719,28 +854,39 @@ This comparison is conducted solely on the mortality dataset, as computing rando
 %     \label{fig:}
 % \end{figure}
 
-\section{Discussion and Conclusion}
+\section{Conclusion}
 \label{sec:conclusion}
 
-This paper extends the current body of research on clustering-based forecast reconciliation by introducing a general hierarchical forecasting framework, incorporating three distinct approaches: cluster hierarchies, random hierarchies, and combination hierarchies.
-In contrast to the focused scope of previous studies, our approach to cluster hierarchies involves a broader exploration. We examine four time series representations, employ two distance measures, and utilize two clustering algorithms. This comprehensive method differs significantly from the existing literature, which typically concentrates on specific clustering implementations.
-We also introduce two innovative random hierarchy construction methods to investigate what drives the performance enhancements in cluster hierarchies. These random hierarchies help isolate the effect of clustering, allowing us to focus on the benefits derived from the structure alone.
-Furthermore, we propose combination hierarchies to mitigate uncertainties inherent in random hierarchies.
+This paper thoroughly investigates the issue of constructing hierarchies for forecast reconciliation, with the goal of improving forecast accuracy. This issue is particularly important in the absence of a predefined natural hierarchy. Rather than focus on a single clustering algorithm, we consider a more general framework, incorporating three distinct approaches: cluster hierarchies, permutation hierarchies, and combination hierarchies. Unsurprisingly, no single method emerges as superior for all datasets, although hierarchical clustering, which by construction leads to a larger number of clusters, tends to outperform $k$-mediods clustering.
 
-Our simulation study is constructed around two scenarios, each based on different base forecasting models. The first scenario highlights the value of the structure, evident in the high-ranking performance of random combination hierarchies. Structure can further improve forecast performance when the base forecasts are of high quality. The second scenario demonstrates the efficacy of clustering-based approaches, particularly when the base forecasts at the bottom level are less accurate.
+This naturally begs the question, of why adding more middle level series can improve forecast performance. We devise a method that keeps the hierarchy fixed while permuting the bottom level series, yielding ``twin'' hierarchies. The bottom-level series that aggregate to a single middle level series are thus chosen at random. Across different datasets and settings, an overwhelmingly large number of twins, perform not significantly worse, or even better, than a hierarchy selected using clustering. This suggests that the improved forecast performance arises not from grouping similar times series together, but rather from features related to the structure of the hierarchy, \textit{e.g.} the larger number of middle level series. We find similar results from a simulation study where clusters are predefined. %, as well as for combinations of hierarchies. 
+%This rules out the possibility that our empirical results arise due to spurious clusters or the poor performance of a single clustering method.
+This eliminates the possibility that our empirical results arise due to  spurious clusters or the inadequate performance of a single clustering method.
+%Our empirical and simulation studies provided answers to four important research questions. Firstly, we find that the natural hierarchy improves forecast performance compared to both the two-level hierarchy and base forecast.
+%Secondly, cluster hierarchies have the potential to further improve  performance, despite the best-performing approach varying depending on specific datasets.
+%These results align with findings in previous literature on this topic (\citealp{liForecastReconciliationApproach2019, pangHierarchicalElectricityTime2018, pangHierarchicalElectricityTime2022, matteraImprovingOutofSampleForecasts2023}).
+%However, in contrast to the focused scope of previous studies, we involve a broader exploration, including four time series representations, two distance measures, and two clustering algorithms.
 
-Empirical studies on two datasets support our simulation findings. In the tourism dataset, the inferior base forecasts at the bottom level lead to all cluster hierarchies surpassing the original hierarchy, with four outperforming the combination of random hierarchies, which is used to demonstrate the impact of enriched structure. In contrast, the superior performance of two random combination hierarchies in the mortality dataset highlights the effectiveness of enriched structure. These results imply that the dominant factor, whether it is the enriched structure or clustering, varies depending on the dataset's characteristics, the base forecasting models, and other variables. Overall, our findings suggest that hierarchy construction approaches generally enhance performance, and combining these approaches leads to further improvements.
+
+%To investigate the driving factors behind performance improvements in natural hierarchy and cluster hierarchies, specifically ``strcuture'' and ``groupings'', we propose an innovative permutation approach that constructs random ``twin'' hierarchies. 
+%Comparing natural or cluster hierarchies with their twins allows us to disentangle the impact of ``groupings''. The results from two empirical datasets and simulations indicate that while certain cluster hierarchies further improve performance, they do not demonstrate a definitive priority over their twins, particularly in the case of the mortality dataset. Therefore, ``structure'', such as number of middle-level time series and depth of the hierarchy, usually has a more substantial influence on forecast performance. 
+Our main practical recommendation is to use multiple clustering methods and combine forecasts across these methods using equal weights combination. 
+This mitigates the uncertainty of selecting the best clustering approach and is shown to significantly outperform all benchmarks across both datasets that we consider. %One could also extend this idea to averaging over random twins, although we note that any averaging approach incurs a computation cost in needing to obtain base forecasts for more middle level series.
+One could also extend this idea to averaging over random twins. However, it's worth noting that any averaging approach incurs a computation cost as it requires obtaining base forecasts for additional middle-level series.
+% We also introduce an innovative random hierarchy construction method to investigate what drives the performance enhancements in cluster hierarchies. These random hierarchies help isolate the effect of clustering, allowing us to focus on the benefits derived from the structure alone.
+% Furthermore, we propose combination hierarchies to mitigate uncertainties inherent in random hierarchies.
+
+% Our simulation study is constructed around two scenarios, each based on different base forecasting models. The first scenario highlights the value of the structure, evident in the high-ranking performance of random combination hierarchies. Structure can further improve forecast performance when the base forecasts are of high quality. The second scenario demonstrates the efficacy of clustering-based approaches, particularly when the base forecasts at the bottom level are less accurate.
+
+% Empirical studies on two datasets support our simulation findings. In the tourism dataset, the inferior base forecasts at the bottom level lead to all cluster hierarchies surpassing the original hierarchy, with four outperforming the combination of random hierarchies, which is used to demonstrate the impact of enriched structure. In contrast, the superior performance of two random combination hierarchies in the mortality dataset highlights the effectiveness of enriched structure. These results imply that the dominant factor, whether it is the enriched structure or clustering, varies depending on the dataset's characteristics, the base forecasting models, and other variables. Overall, our findings suggest that hierarchy construction approaches generally enhance performance, and combining these approaches leads to further improvements.
 
 
-Future research based on our study could proceed in several promising directions. Firstly, our experiments were concentrated on total-level and bottom-level series. In practical applications, it might be necessary to include specific middle levels or evaluate the entire hierarchy. This could lead to the exploration of different hierarchy approaches, such as clustering middle-level series rather than bottom-level ones. Although we used equally-weighted combinations in this study, there's potential for applying more sophisticated methods to improve performance. The extensive literature on forecast combination, including advanced methods for calculating weights, offers numerous possibilities for enhancement (refer to \citealp{wangForecastCombinations50year2022} for an in-depth review).
-
+Future research based on our study could proceed in several promising directions. %Firstly, our experiments were concentrated on total-level and bottom-level series. In practical applications, it might be necessary to include specific middle levels or evaluate the entire hierarchy. This could lead to the exploration of different hierarchy approaches, such as clustering middle-level series rather than bottom-level ones. 
+For example, while we used equally-weighted combinations in this study, there is  potential to apply more sophisticated forecast combination methods to improve performance. The extensive literature on forecast combination, including advanced methods for calculating weights, could also be considered (refer to \citealp{wangForecastCombinations50year2022} for an in-depth review).
 % In Section~\ref{sec:combination}, we discuss the implications of combining multiple hierarchical structures on the uncertainty in estimating the covariance matrix of base forecast errors. Our conclusion was to opt for forecast combination rather than combining the structures of the hierarchies.  However, a systematic exploration of these two strategies, combining hierarchical structures and combining forecasts, presents an intriguing area for future research. Specifically, addressing the challenge of uncertainty due to high dimensionality in the combination of hierarchical structures is possible. In this context, innovative solutions like the regularized forecast reconciliation approach, as proposed by \cite{bentaiebRegularizedRegressionHierarchical2019a}, and alternative estimators of the covariance matrix, such as those suggested by \cite{pritulargaStochasticCoherencyForecast2021} could be highly beneficial. 
-
-In both our simulation and empirical studies, the combination of random hierarchies displayed competitive results compared to clustering-based methods. However, the efficacy of this approach in scenarios with an extremely large number of bottom-level series remains uncertain. In such cases, a partially random approach might be more effective. For instance, initially generating random hierarchies, identifying those with superior performance, and then constructing partially random hierarchies based on these well-performing structures could be a viable strategy. Another intriguing possibility is the integration of both clustering and random approaches. Moreover, our study focused specifically on the aggregation of bottom-level series, which may have constrained the potential of middle-level series. It's plausible to enhance forecastability at the middle level by creating series through general linear combinations. 
-
-
-Finally, our study was centered around point forecast reconciliation and cross-sectional hierarchy. However, the field of probabilistic forecast reconciliation has recently gained significant interest, as evidenced by research like \cite{panagiotelisProbabilisticForecastReconciliation2023} and \cite{jeonProbabilisticForecastReconciliation2019}. Applying hierarchy construction approaches to probabilistic forecast reconciliation presents a novel and potentially fruitful research avenue. This approach could provide deeper insights and more robust forecast reconciliation methods, particularly in scenarios where uncertainty and variability are significant factors.
-Another promising direction for extending our methodologies lies in exploring temporal (\citealp{athanasopoulosForecastingTemporalHierarchies2017}) and cross-temporal hierarchies (\citealp{girolimettoCrosstemporalProbabilisticForecast2023a}). 
+% In both our simulation and empirical studies, the combination of random hierarchies displayed competitive results compared to clustering-based methods. However, the efficacy of this approach in scenarios with an extremely large number of bottom-level series remains uncertain. In such cases, a partially random approach might be more effective. For instance, initially generating random hierarchies, identifying those with superior performance, and then constructing partially random hierarchies based on these well-performing structures could be a viable strategy. Another intriguing possibility is the integration of both clustering and random approaches. Moreover, our study focused specifically on the aggregation of bottom-level series, which may have constrained the potential of middle-level series. It's plausible to enhance forecastability at the middle level by creating series through general linear combinations. 
+%Finally, our study was centered around point forecast reconciliation and cross-sectional hierarchy. However, the field of probabilistic forecast reconciliation has recently gained significant interest, as evidenced by research like \cite{panagiotelisProbabilisticForecastReconciliation2023} and \cite{jeonProbabilisticForecastReconciliation2019}. Applying hierarchy construction approaches to probabilistic forecast reconciliation presents a novel and potentially fruitful research avenue. This approach could provide deeper insights and more robust forecast reconciliation methods, particularly in scenarios where uncertainty and variability are significant factors.
+Also, our results are based on cross-sectional data, this could be extended to explore temporal (\citealp{athanasopoulosForecastingTemporalHierarchies2017}) and cross-temporal hierarchies (\citealp{girolimettoCrosstemporalProbabilisticForecast2023a}). Finally, more work could be carried out to understand whether some middle levels contribute more to forecast accuracy than others, and accordingly ``pruning'' the less useful middle level series.
 
 
 \clearpage 
