@@ -1,6 +1,6 @@
 args <- commandArgs(trailingOnly = TRUE)
 path <- args[[1]]
-bfmethod <- args[[2]]
+bfmethod <- "ets"
 
 num.cores <- 8
 
@@ -31,46 +31,58 @@ DISTANCES2 <- rep("dtw", 2)
 for (batch in 0:batch_length) {
   store_path <- sprintf("%s/%s/batch_%s.rds", path, bfmethod, batch)
   data <- readRDS(store_path)
-  cluster <- sapply(data$nl, function(x){x$cluster})  
+  cluster <- sapply(data$nl, function(x) {
+    x$cluster
+  })
   if ("Kmedoids-dr" %in% cluster) {
     next
   }
 
   for (i in seq_along(REPRESENTORS)) {
     print(sprintf("%s KMedoids dr %s * %s ", Sys.time(), REPRESENTORS[i], DISTANCES[i]))
-    nl <- build_level(hts = data, representor = REPRESENTORS[i],
-                      distance = DISTANCES[i],
-                      cluster = cluster.kmedoids,
-                      n_clusters = 1:(m - 1))
+    nl <- build_level(
+      hts = data, representor = REPRESENTORS[i],
+      distance = DISTANCES[i],
+      cluster = cluster.kmedoids,
+      n_clusters = 1:(m - 1)
+    )
     data <- add_nl(data, nl$S, REPRESENTORS[i], DISTANCES[i], "Kmedoids-dr",
-                   other = nl$info)
+      other = nl$info
+    )
   }
-  
+
   for (i in seq_along(REPRESENTORS2)) {
     print(sprintf("%s KMedoids %s * %s ", Sys.time(), REPRESENTORS2[i], DISTANCES2[i]))
-    nl <- build_level(hts = data, representor = REPRESENTORS2[i],
-                      distance = DISTANCES2[i],
-                      cluster = cluster.kmedoids,
-                      n_clusters = 1:(m - 1))
+    nl <- build_level(
+      hts = data, representor = REPRESENTORS2[i],
+      distance = DISTANCES2[i],
+      cluster = cluster.kmedoids,
+      n_clusters = 1:(m - 1)
+    )
     data <- add_nl(data, nl$S, REPRESENTORS2[i], DISTANCES2[i], "Kmedoids",
-                   other = nl$info)
+      other = nl$info
+    )
   }
 
   # hierarchical clustering dimension reduction
   for (i in seq_along(REPRESENTORS)) {
-    nl <- build_level(hts = data, representor=REPRESENTORS[i],
-                      distance = DISTANCES[i],
-                      cluster = cluster.hcluster,
-                      method = "ward")[[1]]
+    nl <- build_level(
+      hts = data, representor = REPRESENTORS[i],
+      distance = DISTANCES[i],
+      cluster = cluster.hcluster,
+      method = "ward"
+    )[[1]]
     data <- add_nl(data, nl, REPRESENTORS[i], DISTANCES[i], "hcluster-dr")
   }
 
   for (i in seq_along(REPRESENTORS2)) {
     print(sprintf("%s hcluster %s * %s ", Sys.time(), REPRESENTORS2[i], DISTANCES2[i]))
-    nl <- build_level(hts = data, representor = REPRESENTORS2[i],
-                      distance = DISTANCES2[i],
-                      cluster = cluster.hcluster,
-                      method = "ward")[[1]]
+    nl <- build_level(
+      hts = data, representor = REPRESENTORS2[i],
+      distance = DISTANCES2[i],
+      cluster = cluster.hcluster,
+      method = "ward"
+    )[[1]]
     data <- add_nl(data, nl, REPRESENTORS2[i], DISTANCES2[i], "hcluster")
   }
 

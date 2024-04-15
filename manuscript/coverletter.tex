@@ -1,0 +1,84 @@
+\documentclass[a4paper,11pt]{article}
+
+%%%%%%%%%%%%%%%%%% Non-Latin Languages Support %%%%%%%%%%%%%%%%%%%%%%%
+% \usepackage[adobefonts,nocap]{ctex}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\usepackage[twoside]{geometry}
+\geometry{verbose,tmargin=2.0cm,bmargin=5.5cm,lmargin=2.0cm,rmargin=2.0cm}
+% \usepackage[raggedright]{titlesec}
+
+\usepackage{graphicx}
+\usepackage[unicode=true]{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  citecolor=blue,
+  urlcolor=blue}
+
+\usepackage{multirow}
+
+%% Line spacing
+\usepackage{setspace}
+\onehalfspace
+
+%% Fancy symbols
+\usepackage{marvosym}
+
+
+%% Fonts
+\usepackage[ugaramond]{mathdesign}
+% \usepackage{inconsolata}
+
+%% Fancy header and footer
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\pagestyle{fancy}
+
+\fancyhf{} % clear all header and footer fields
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+\fancyfoot[L]{ \texttt{School of Economics and Management\\ Beihang University\\ 37 Xueyuan Road, Beijing, 100191, China}}
+
+%\fancyfoot[C]{\vspace{2.0cm} \thepage~/~\pageref{LastPage}}
+
+\fancyfoot[R]{\texttt{\url{https://sem.buaa.edu.cn}\\ \url{https://www.buaa.edu.cn}\\Tel: +86 10 82317839}}
+
+
+\begin{document} \thispagestyle{fancy}
+
+\begin{tabular}{ll}
+  \multirow{7}{*}{\hspace{4cm}\hspace{0.18\textwidth}}
+  & Bohan Zhang \\
+  & School of Economics and Management \\
+  & Beihang University\\
+  & 100191 Beijing, China\\
+  & \Email~\texttt{zhangbohan@buaa.edu.cn} \\
+  & \Pointinghand~\texttt{\url{https://bohan-zhang.com/}}\\
+  & \\
+  & \today
+\end{tabular}
+
+\vspace{1.5cm}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\noindent Dear Editor,
+\vspace{1cm}
+
+Please find the attached manuscript entitled ``Constructing hierarchical time series through clustering: Is there an optimal way for forecasting?'' by Bohan Zhang, Anastasios Panagiotelis, and Han Li, which we wish to submit for publication as a regular article in \emph{International Journal of Forecasting}.  No conflict of interest exists in the submission of this manuscript, and the manuscript is approved by all authors for publication. We confirm that the work is original research that has not been published previously and is not under consideration for publication elsewhere.
+
+In this paper, we extend existing work that uses time series clustering to construct hierarchies, with the goal of improving forecast accuracy, in three ways. First, we investigate multiple approaches to clustering, and find that cluster-based hierarchies lead to improvements in forecast accuracy relative to two-level hierarchies. Second, we devise an approach based on random permutation of hierarchies. In doing so, we find that improvements in forecast accuracy that accrue from using clustering do not arise from grouping together similar series but from the structure of the hierarchy. Third, we propose an approach based on averaging forecasts across hierarchies constructed using different clustering methods, that is shown to outperform any single clustering method. All analysis is carried out on two benchmark datasets and a simulated dataset. Our findings provide new insights into the role of hierarchy construction in forecast reconciliation and offer valuable guidance on forecasting practice.
+
+We hope that the manuscript meets the standards of your journal. Thank you for your consideration.
+
+\vspace{1cm}
+
+\noindent Sincerely,
+\bigskip
+%\noindent \includegraphics[width=3cm]{/home/fli/Documents/Signatures/Signature-EN}
+
+\noindent Bohan Zhang
+
+\end{document}

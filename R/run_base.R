@@ -1,6 +1,6 @@
 args <- commandArgs(trailingOnly = TRUE)
 path <- args[[1]]
-bfmethod <- args[[2]]
+bfmethod <- "ets"
 
 num.cores <- 8
 
@@ -31,10 +31,11 @@ for (batch in 0:batch_length) {
   }
   forecast_horizon <- min(c(time_length - 96 - batch, 12))
   data <- hts(rbind(rep(1, m), diag(m)),
-               bts = dt$data[1:(96+batch), (n-m+1):n],
-               tts = dt$data[(96+batch+1):(96+batch+forecast_horizon), (n-m+1):n])
+    bts = dt$data[1:(96 + batch), (n - m + 1):n],
+    tts = dt$data[(96 + batch + 1):(96 + batch + forecast_horizon), (n - m + 1):n]
+  )
 
-  data <- hts.basef(data, bfmethod, h=forecast_horizon, frequency=12)
+  data <- hts.basef(data, bfmethod, h = forecast_horizon, frequency = 12)
 
   print(paste0(Sys.time(), "computing features ..."))
   data <- features.compute(data, frequency = frequency)
@@ -47,7 +48,7 @@ for (batch in 0:batch_length) {
     cluster_input <- get(paste0("representator.", strsplit(representor, "-")[[1]][1]))(data, dr = endsWith(representor, "-dr"))
     distance_method <- get(paste0("distance.", distance))
     distance_mat <- matrix(0, m, m)
-    lst <- foreach(row=1:m, .packages = c("dtw")) %dopar% {
+    lst <- foreach(row = 1:m, .packages = c("dtw")) %dopar% {
       output <- c()
       for (col in 1:row) {
         dis <- distance_method(cluster_input[, row], cluster_input[, col])
@@ -63,6 +64,6 @@ for (batch in 0:batch_length) {
     data$distance <- DISTANCEMAT
   }
   data <- add_nl(data, NULL, "", "", "")
-  data <- add_nl(data, dt$S[2:(n-m),], representor = "", distance = "", cluster = "natural")
+  data <- add_nl(data, dt$S[2:(n - m), ], representor = "", distance = "", cluster = "natural")
   saveRDS(data, store_path)
 }
