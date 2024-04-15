@@ -1,4 +1,4 @@
-# Constructing hierarchical time series through clustering: \\Is there an optimal way for forecasting?
+# Constructing hierarchical time series through clustering: Is there an optimal way for forecasting?
 
 Manuscript and code for the paper "Constructing hierarchical time series through clustering: Is there an optimal way for forecasting?". The code is used to reproduce the results and figures in the paper.
 
