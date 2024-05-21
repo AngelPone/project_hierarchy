@@ -5,7 +5,7 @@ archive
 *.rds
 !names.rds
 !data.rds
-
+*.pdf
 
 mortality/arima
 mortality/ets
