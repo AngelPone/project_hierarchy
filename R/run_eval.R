@@ -18,18 +18,18 @@ metrics <- c("rmsse")
 source("R/metrics.R")
 
 
-hts.eval2 <- function(df, metrics, tts, bts) {
+hts.eval2 <- function(df, metrics, tts, bts, S) {
   if (is.null(dim(tts))) {
-    tts <- c(sum(tts), tts)
+    tts <- S %*% tts
     tts <- matrix(tts, nrow = 1)
   } else {
-    tts <- cbind(rowSums(tts), tts)[1:forecast_horizon,,drop=FALSE]
+    tts <- (tts %*% t(S))[1:forecast_horizon,,drop=FALSE]
   }
-  
-  bts <- cbind(rowSums(bts), bts)
-  
+
+  bts <- bts %*% t(S)
+
   data_tibble <- df %>% filter(representor != "")
-  
+
   data_tibble$permute <- sapply(data_tibble$cluster, function(x){
     if (!startsWith(x, "permute")) {
       return (0)
@@ -47,7 +47,8 @@ hts.eval2 <- function(df, metrics, tts, bts) {
     x <- stringi::stri_replace_all_fixed(x, paste0("-", split_x[length(split_x)]), "")
     x
   })
-  
+
+  # compute combination of reconciled forecasts
   avg <- data_tibble %>% select(representor, cluster, distance, rf, permute) %>%
     arrange(permute) %>%
     group_by(permute) %>%
@@ -64,30 +65,32 @@ hts.eval2 <- function(df, metrics, tts, bts) {
       output
     }) %>% rowwise() %>%
     filter(!is.null(rf)) %>% ungroup() %>%
-    mutate(permute = paste0(ifelse(permute > 0, "permute-", ""), 
-                            "average", 
+    mutate(permute = paste0(ifelse(permute > 0, "permute-", ""),
+                            "average",
                             ifelse(permute > 0, paste0("-", permute), ""))) %>%
     mutate(representor="", distance="", other=list(NULL), S=list(NULL)) %>%
     rename(cluster=permute)
-  
+
   df <- df %>% rbind(avg)
 
-  
+
   for (metric in metrics) {
     accuracy_method <- get(paste0("metric.", metric))
-    
+
     df[[metric]] <- foreach::foreach(g=iterators::iter(df$rf)) %do%  {
-      c <- g[['mint']][1:forecast_horizon,,drop=FALSE]
+      c <- g[['mint']][1:forecast_horizon, 2:(m+1),drop=FALSE]
+      c <- c %*% t(S)
       sapply(1:NCOL(c), function(x) { accuracy_method(tts[,x], c[,x], bts[,x]) } )
     }
   }
   df
 }
 
+
 nl2tibble <- function(x) {
   output <- vector("list", 6)
   names(output) <- c("representor", "cluster", "distance", "S", "rf", "other")
-  
+
   for (i in seq_along(x)) {
     for (n in names(x[[i]])) {
       if (is.character(x[[i]][[n]])) {
@@ -100,20 +103,30 @@ nl2tibble <- function(x) {
   tibble::as_tibble(output)
 }
 
-hts.evalbase <- function(dt, metrics) {
-  if (is.null(dim(dt$tts))){
-    tts <- c(sum(dt$tts), dt$tts)
-    tts <- matrix(tts, nrow=1)
+hts.evalbase <- function(dt, metrics, S) {
+  if (is.null(dim(dt$tts))) {
+    tts <- S %*% tts
+    tts <- matrix(tts, nrow = 1)
   } else {
-    tts <- cbind(rowSums(dt$tts), dt$tts)[1:forecast_horizon,,drop=FALSE]
+    tts <- (tts %*% t(S))[1:forecast_horizon,,drop=FALSE]
   }
-  
-  bts <- cbind(rowSums(dt$bts), dt$bts)
+
+  bts <- bts %*% t(S)
   output <- list()
+  basef_middle <- foreach(iterators::iter(x=bts[,2:(n-m)], by="column")) %dopar% {
+    x <- ts(x, frequency = 12)
+    mdl <- forecast::ets(x)
+    fcasts <- forecast::forecast(mdl, h=12)
+    as.numeric(fcasts$mean)
+  } %>% do.call(cbind)
+  basef <- cbind(dt$basef[,1], basef_middle, dt$basef[,2:(m+1)])
   for (metric in metrics) {
     accuracy_method <- get(paste0("metric.", metric))
     output[[metric]] <-
-      list(sapply(1:NCOL(bts), function(x) { accuracy_method(tts[,x], dt$basef[1:forecast_horizon,x], bts[,x]) } ))
+      list(sapply(1:NCOL(bts),
+                  function(x) {
+                    accuracy_method(tts[,x], basef[1:forecast_horizon,x], bts[,x])
+                    } ))
   }
   output
 }
@@ -129,7 +142,7 @@ for (batch in 0:batch_length) {
   store_path <- sprintf("%s/ets/batch_%s.rds", path, batch)
   data <- readRDS(store_path)
   data_tibble <- nl2tibble(data$nl)
-  data_tibble <- hts.eval2(data_tibble, metrics, data$tts, data$bts)
+  data_tibble <- hts.eval2(data_tibble, metrics, data$tts, data$bts, dt$S)
 
   data_tibble <- data_tibble %>% select(-rf) %>% mutate(batch = batch)
   dtb <- rbind(dtb, data_tibble)
