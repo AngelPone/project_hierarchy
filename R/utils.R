@@ -128,76 +128,44 @@ hts.basef <- function(x, h, frequency) {
   x
 }
 
-hts.nlf <- function(htst, f_str, h, frequency) {
-  f <- get(paste0("f.", f_str))
+#' function to generate base forecasts and reconciled forecasts for all
+#' new hierarchies
+hts.nlf <- function(htst, h, frequency) {
   
+  # only forecast hierarchies that did not produce reconciled forecasts
   idx2forecast <- which(sapply(htst$nl, function(x) {length(x$rf) == 0}))
   if (length(idx2forecast) == 0) {
     return(htst)
   }
-  smat2sstr <- function(S) {
-    S_str <- c()
-    for (i in 1:NROW(S)) {
-      S_str <- c(S_str, do.call(paste0, as.list(S[i,])))
+  
+  rfs <- future_map(htst$nl[idx2forecast], function(x) {
+    # two-level hierarchy
+    if (is.null(x$S)) {
+      return(list(
+        rf = reconcile.mint(rbind(rep(1, m), diag(m)), htst$basef, htst$resid)
+      ))
     }
-    S_str
-  }
-  
-  S <- do.call(rbind, lapply(htst$nl[idx2forecast], function(g) { g$S }))
-  print(sprintf("totally %s series are constructed", NROW(S)))
-  S_str <- smat2sstr(as.matrix(S))
-  fcasts <- list()
-  
-  for (idx in seq_along(S_str)) {
-    if (S_str[idx] %in% names(fcasts)) {
-      next
-    } else {
-      fcasts[[S_str[idx]]] <- S[idx, ]
-    }
-  }
-  
-  S_toforecast <- do.call(rbind, fcasts)
-  print(sprintf("totally %s series are forecast", NROW(S_toforecast)))
-  
-  allts <- htst$bts %*% t(S_toforecast)
-  
-  bf <- foreach::foreach(x = iterators::iter(allts, by = "column"), .packages = c("forecast")) %dopar% {
-    f(x, h=h, frequency=frequency)
-  }
-  names(bf) <- names(fcasts)
-  
-  rfs <- foreach(nl=iterators::iter(htst$nl[idx2forecast])) %do% {
-    
-    S_nl <- NULL
-    if (!is.null(nl$S)) {
-      S_nl <- as.matrix(nl$S)
-    }
-    
-    S_str <- smat2sstr(S_nl)
-    basef_nl <- do.call(cbind, lapply(S_str, function(g) { bf[[g]]$basef }))
-    resid_nl <- do.call(cbind, lapply(S_str, function(g) { bf[[g]]$resid }))
-    
-    basef <- cbind(htst$basef[,1,drop=FALSE], 
-                   basef_nl, 
-                   htst$basef[,2:NCOL(htst$basef),drop=FALSE])
-    resid <- cbind(htst$resid[,1], resid_nl, htst$resid[,2:NCOL(htst$basef)])
-    
-
-    S <- rbind(rep(1, NCOL(data$S)), S_nl, diag(NCOL(data$S)))
-    
-    reconcile.all(S, basef, resid)
-  }
+    mid_ts <- htst$bts %*% t(as.matrix(x$S))
+    mid_forecasts <- 
+      map(as.list(iterators::iter(mid_ts, by="column")), \(x) f.ets(x, h=h, frequency=frequency))
+    S <- rbind(rep(1, m), as.matrix(x$S), diag(m))
+    basef <- cbind(htst$basef[,1,drop=FALSE],
+                   do.call(cbind, map(mid_forecasts, "basef")),
+                   htst$basef[,2:NCOL(htst$basef)])
+    resid <- cbind(htst$resid[,1,drop=FALSE],
+                   do.call(cbind, map(mid_forecasts, "resid")),
+                   htst$resid[,2:NCOL(htst$resid)])
+    list(rf=reconcile.mint(S, basef, resid), basef=do.call(cbind, map(mid_forecasts, "basef")))
+  })
   
   for (l in seq_along(idx2forecast)) {
     idxinnl <- idx2forecast[l]
-    htst$nl[[idxinnl]]$rf <- rfs[[l]]
+    htst$nl[[idxinnl]]$rf <- rfs[[l]]$rf
+    if (htst$nl[[idxinnl]]$cluster == "natural") {
+      htst$nl[[idxinnl]]$other <- list(basef = rfs[[l]]$basef)
+    }
   }
   htst
-}
-
-
-is.hts <- function(x) {
-  "hts" %in% class(x)
 }
 
 
@@ -342,3 +310,16 @@ reconcile.mint <- function(S, basef, resid){
   unname(FoReco::csrec(basef, comb="shr", agg_mat=C, res=resid)[, c(1, (n-m+1):n)])
 }
 
+
+
+
+nl2tibble <- function(x) {
+  tibble(
+    representor = map_chr(x, "representor"),
+    distance = map_chr(x, "distance"),
+    cluster = map_chr(x, "cluster"),
+    S = map(x, "S"),
+    rf = map(x, "rf"),
+    other = map(x, "other")
+  )
+}
