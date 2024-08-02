@@ -248,7 +248,8 @@ method_name <- function(representor, distance, cluster) {
            Kmedoids = "-ME",
            hcluster = "-HC",
            base = "Base",
-           "average" = "Combination"
+           "combination1" = "Combination",
+           "combination2" = "Stack"
     ),
     "Two-level"
   )

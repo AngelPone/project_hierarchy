@@ -2,87 +2,56 @@ args <- commandArgs(trailingOnly = TRUE)
 path <- args[[1]]
 bfmethod <- "ets"
 
-# cl <- parallel::makeCluster(8)
-# doParallel::registerDoParallel(cl)
-
 dt <- readRDS(sprintf("%s/data.rds", path))
 n <- NROW(dt$S)
 m <- NCOL(dt$S)
-print(sprintf("%s dataset has %s series and %s bottom series", path, n, m))
 time_length <- NROW(dt$data)
-forecast_horizon <- as.integer(args[[2]])
+forecast_horizon <- 12
 frequency <- 12
 batch_length <- time_length - 96 - forecast_horizon
 
-metrics <- c("rmsse")
 source("R/metrics.R")
+source("R/baseforecast.R")
 
 
-hts.eval2 <- function(df, metrics, tts, bts, S) {
-  if (is.null(dim(tts))) {
-    tts <- S %*% tts
-    tts <- matrix(tts, nrow = 1)
-  } else {
-    tts <- (tts %*% t(S))[1:forecast_horizon,,drop=FALSE]
-  }
-
+hts.eval2 <- function(df, tts, bts, S, combination, base, comb_permute=NULL) {
+  tts <- tts %*% t(S)
   bts <- bts %*% t(S)
-
-  data_tibble <- df %>% filter(representor != "")
-
-  data_tibble$permute <- sapply(data_tibble$cluster, function(x){
-    if (!startsWith(x, "permute")) {
-      return (0)
-    }
-    x <- strsplit(x, "-")[[1]]
-    x <- x[length(x)]
-    as.integer(x)
-  })
-  data_tibble$cluster <- sapply(data_tibble$cluster, function(x){
-    if (!startsWith(x, "permute")) {
-      return (x)
-    }
-    split_x <- strsplit(x, "-")[[1]]
-    x <- stringi::stri_replace_all_fixed(x, "permute-", "")
-    x <- stringi::stri_replace_all_fixed(x, paste0("-", split_x[length(split_x)]), "")
-    x
-  })
-
-  # compute combination of reconciled forecasts
-  avg <- data_tibble %>% select(representor, cluster, distance, rf, permute) %>%
-    arrange(permute) %>%
-    group_by(permute) %>%
-    tidyr::nest(rf = -"permute") %>%
-    mutate_at("rf", purrr::map, function(x) {
-      if (dim(x)[1] != 12) {
-        return(NULL)
-      }
-      output <- lapply(c("ols", "wlss", "wlsv", "mint"), function(m) {
-        sapply(x$rf, function(g) { g[[m]][1:forecast_horizon,,drop=FALSE] }, simplify = "array") %>%
-          apply(c(1,2), mean)
-      })
-      names(output) <- c("ols", "wlss", "wlsv", "mint")
-      output
-    }) %>% rowwise() %>%
-    filter(!is.null(rf)) %>% ungroup() %>%
-    mutate(permute = paste0(ifelse(permute > 0, "permute-", ""),
-                            "average",
-                            ifelse(permute > 0, paste0("-", permute), ""))) %>%
-    mutate(representor="", distance="", other=list(NULL), S=list(NULL)) %>%
-    rename(cluster=permute)
-
-  df <- df %>% rbind(avg)
-
-
-  for (metric in metrics) {
-    accuracy_method <- get(paste0("metric.", metric))
-
-    df[[metric]] <- foreach::foreach(g=iterators::iter(df$rf)) %do%  {
-      c <- g[['mint']][1:forecast_horizon, 2:(m+1),drop=FALSE]
-      c <- c %*% t(S)
-      sapply(1:NCOL(c), function(x) { accuracy_method(tts[,x], c[,x], bts[,x]) } )
+  
+  df <- add_row(df, representor="", cluster="combination1", 
+                distance="", S=NULL, 
+                rf=list(list(mint=combination[[1]])), other=NULL) 
+  
+  df <- add_row(df, representor = "", cluster="combination2", S=NULL, 
+                distance = "",
+                rf=list(list(mint=combination[[2]])), other=NULL)
+  
+  if (!is.null(comb_permute)) {
+    for (i in 1:100) {
+      df <- add_row(df, representor="", cluster=paste0("permute-combination1-", i),
+                    distance="", S=NULL, rf=list(list(mint=comb_permute[[i]])), other=NULL)
     }
   }
+  
+  
+  df[["rmsse"]] <- lapply(iterators::iter(df$rf), function(g) {
+      c <- g[['mint']][, 2:(m+1),drop=FALSE]
+      c <- c %*% t(S)
+      sapply(1:NCOL(c), function(x) { metric.rmsse(tts[,x], c[,x], bts[,x]) })
+  })
+  
+  
+  basef_middle <- furrr::future_map(as.list(iterators::iter(bts[,2:(n-m)], by="column")),
+                                    \(x) as.numeric(f.ets(x, 12, 12)$basef))
+  basef_middle <- do.call(cbind, basef_middle)
+  basef <- cbind(base[,1], basef_middle, base[,2:(m+1)])
+  basef_rmsse <- sapply(1:NCOL(bts),
+                             function(x) {
+                               metric.rmsse(tts[,x], basef[,x], bts[,x])
+                             } )
+  
+  df <- add_row(df, representor="", cluster="base", distance="",
+                S=NULL, rf=NULL, rmsse=list(basef_rmsse))
   df
 }
 
@@ -103,54 +72,36 @@ nl2tibble <- function(x) {
   tibble::as_tibble(output)
 }
 
-hts.evalbase <- function(dt, metrics, S) {
-  if (is.null(dim(dt$tts))) {
-    tts <- S %*% tts
-    tts <- matrix(tts, nrow = 1)
-  } else {
-    tts <- (tts %*% t(S))[1:forecast_horizon,,drop=FALSE]
-  }
-
-  bts <- bts %*% t(S)
-  output <- list()
-  basef_middle <- foreach(iterators::iter(x=bts[,2:(n-m)], by="column")) %dopar% {
-    x <- ts(x, frequency = 12)
-    mdl <- forecast::ets(x)
-    fcasts <- forecast::forecast(mdl, h=12)
-    as.numeric(fcasts$mean)
-  } %>% do.call(cbind)
-  basef <- cbind(dt$basef[,1], basef_middle, dt$basef[,2:(m+1)])
-  for (metric in metrics) {
-    accuracy_method <- get(paste0("metric.", metric))
-    output[[metric]] <-
-      list(sapply(1:NCOL(bts),
-                  function(x) {
-                    accuracy_method(tts[,x], basef[1:forecast_horizon,x], bts[,x])
-                    } ))
-  }
-  output
-}
 
 library(dplyr)
 library(foreach)
+library(furrr)
+plan(multisession(workers = 8))
 dtb <- NULL
-dtb_base <- NULL
 
 
+
+
+combination <- readRDS(sprintf("%s/ets/combination.rds", path))
+if (path == "mortality") {
+  combination_permute <- readRDS("mortality/ets/combination_permute.rds")
+}
 for (batch in 0:batch_length) {
   print(sprintf("%s, %s", Sys.time(), batch))
   store_path <- sprintf("%s/ets/batch_%s.rds", path, batch)
   data <- readRDS(store_path)
   data_tibble <- nl2tibble(data$nl)
-  data_tibble <- hts.eval2(data_tibble, metrics, data$tts, data$bts, dt$S)
+  c_p <- NULL
+  if (path == "mortality") {
+    c_p <- combination_permute[[batch+1]]
+  }
+  data_tibble <- hts.eval2(data_tibble, data$tts, data$bts, dt$S, combination[[batch+1]], data$basef, c_p)
 
-  data_tibble <- data_tibble %>% select(-rf) %>% mutate(batch = batch)
+  data_tibble <- data_tibble %>% select(-rf, -other) %>% mutate(batch = batch)
   dtb <- rbind(dtb, data_tibble)
-  dtb_base <- rbind(dtb_base, as_tibble(hts.evalbase(data, metrics)) %>%
-                      mutate(batch = batch))
 }
 
-saveRDS(list(base = dtb_base, dtb = dtb), sprintf("%s/%s/eval_%s.rds", path, bfmethod, forecast_horizon))
+saveRDS(dtb, sprintf("%s/ets/eval.rds", path))
 
 
 
