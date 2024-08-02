@@ -1,6 +1,5 @@
 library(forecast, quietly = TRUE)
 library(cluster, quietly = TRUE)
-library(foreach, quietly = TRUE)
 library(dplyr, quietly = TRUE)
 
 source("clustering.R")
