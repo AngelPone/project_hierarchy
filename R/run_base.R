@@ -1,10 +1,6 @@
 args <- commandArgs(trailingOnly = TRUE)
 path <- args[[1]]
 
-library(future)
-plan(multisession, workers=8)
-
-
 source("R/utils.R", chdir = T)
 
 

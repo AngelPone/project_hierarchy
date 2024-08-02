@@ -1,10 +1,80 @@
 library(forecast, quietly = TRUE)
 library(cluster, quietly = TRUE)
 library(dplyr, quietly = TRUE)
+library(furrr, quietly = TRUE)
+library(purrr, quietly = TRUE)
+library(dtw, quietly = TRUE)
 
-source("clustering.R")
-source("metrics.R")
+plan(multisession, workers=8)
+
+
 source("expr_utils.R")
+
+#' RMSSE
+metric.rmsse <- function(obs, pred, hist) {
+  sqrt(mean((obs - pred)^2) / mean(diff(hist, 12)^2))
+}
+
+
+#' kmedoids
+#' 
+cluster.kmedoids <- function(distance_mat, n_clusters) {
+  
+  # calculate silhouette and determine optimal number of clusters
+  max.avgwidths <- 0
+  max.n_cluster <- 1
+  max.pr <- NULL
+  for (n_cluster in n_clusters) {
+    if (n_cluster == 1) next
+    pr <- pam(distance_mat, k=n_cluster, diss=TRUE)
+    clus_silwidth <- summary(silhouette(pr))
+    # if (min(clus_silwidth$clus.avg.widths) < 0.1) next
+    if (clus_silwidth$avg.width > max.avgwidths) {
+      max.avgwidths <- clus_silwidth$avg.width
+      max.n_cluster <- n_cluster
+      max.pr <- pr
+    }
+  }
+  if (max.n_cluster == 1) { return(NULL) }
+  
+  grp2S <- function(grp) {
+    grpvec <- grp$clustering
+    do.call(rbind, lapply(unique(grpvec), function(grp){
+      S_row <- vector("numeric", NCOL(distance_mat))
+      S_row[which(grpvec == grp)] <- 1
+      S_row
+    }))
+  }
+  
+  list(S=grp2S(max.pr), 
+       info = list(n_cluster = max.n_cluster, 
+                   width = summary(silhouette(max.pr))$clus.avg.widths,
+                   avgwidth = summary(silhouette(max.pr))$avg.width,
+                   medoids = max.pr$id.med)
+  )
+}
+
+#' hierarchical clustering
+#' 
+#' @param method linkage method: see ?cluster::agnes
+cluster.hcluster <- function(distance_mat, method) {
+  hc <- agnes(distance_mat, diss = FALSE, method = method,
+              keep.data = FALSE, keep.diss = FALSE)
+  
+  S <- matrix(0, NROW(hc$merge) - 1, NROW(distance_mat))
+  
+  for (i in 1:NROW(S)) {
+    cur_idx <- hc$merge[i,]
+    for (idx in cur_idx) {
+      if (idx < 0) {
+        S[i, abs(idx)] <- 1
+      } else {
+        S[i, which(S[idx, ] == 1)] <- 1
+      }
+    }
+  }
+  list(S)
+}
 
 
 #' hts
@@ -37,9 +107,7 @@ add_nl <- function(data, S, representor, distance, cluster, other=NULL) {
   data
 }
 
-library(forecast)
-library(furrr)
-library(purrr)
+
 #' function to produce base forecast for single time series using ets model
 f.ets <- function(x, h, frequency) {
   mdl <- ets(ts(x, frequency = frequency))
@@ -253,7 +321,7 @@ representor.error.features <- function(x, dr=FALSE) {
 }
 
 #' distance
-library(dtw, quietly = TRUE)
+
 #' euclidean distance
 distance.euclidean <- function(x, y) { sqrt(sum((x - y)^2)) }
 #' dtw distance
