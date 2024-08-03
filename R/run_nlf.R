@@ -12,7 +12,7 @@ forecast_horizon <- 12
 frequency <- 12
 batch_length <- time_length - 96 - forecast_horizon + 1
 
-for (batch in 0:(batch_length)) {
+for (batch in 0:(batch_length-1)) {
   print(sprintf("%s batch %s ....", Sys.time(), batch))
   store_path <- sprintf("%s/batch_%s.rds", path, batch)
   data <- readRDS(store_path)
@@ -21,3 +21,4 @@ for (batch in 0:(batch_length)) {
 
   saveRDS(data, store_path)
 }
+

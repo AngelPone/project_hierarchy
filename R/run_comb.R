@@ -1,12 +1,13 @@
 
-source("R/baseforecast.R")
+source("R/utils.R", chdir = T)
 
 compute_comb1 <- function(batch) {
   nls <- Filter(function(x) {
     (x$representor != "") & (!startsWith(x$cluster, "permute"))
   }, batch$nl)
   
-  combined_rf <- do.call(abind::abind, list(purrr::map(nls, function(x){x$rf$mint}),
+  stopifnot(length(nls) == 12)
+  combined_rf <- do.call(abind::abind, list(purrr::map(nls, "rf"),
                              along = 0))
   apply(combined_rf, c(2, 3), mean)
 }
@@ -17,15 +18,16 @@ compute_comb2 <- function(batch) {
   nls <- Filter(function(x) {
     (x$representor != "") & (!startsWith(x$cluster, "permute"))
   }, batch$nl)
+  stopifnot(length(nls) == 12)
   
-  S <- do.call(rbind, purrr::map(nls, "S"))
+  S <- do.call(rbind, map(nls, "S"))
   
   allts <- batch$bts %*% t(as.matrix(S))
   
-  basef <- furrr::future_map(as.list(iterators::iter(allts, by="column")), 
-                             \(x) f.ets(x, 12, 12), .progress = TRUE)
-  resids <- do.call(cbind, purrr::map(basef, \(x) as.numeric(x$resid)))
-  basef <- do.call(cbind, purrr::map(basef, \(x) as.numeric(x$basef)))
+  basef <- future_map(as.list(iterators::iter(allts, by="column")), 
+                      \(x) f.ets(x, 12, 12))
+  resids <- do.call(cbind, map(basef, \(x) as.numeric(x$resid)))
+  basef <- do.call(cbind, map(basef, \(x) as.numeric(x$basef)))
   basef <- cbind(batch$basef[,1], basef, batch$basef[,2:NCOL(batch$basef)])
   resids <- cbind(batch$resid[,1], resids, batch$resid[,2:NCOL(batch$resid)])
   
@@ -37,51 +39,46 @@ compute_comb2 <- function(batch) {
   rf[,c(1, (NCOL(rf)-m+1):NCOL(rf))]
 }
 
-library(future)
-plan(multisession(workers = 8))
-
-
-
-for (path in c("tourism", "mortality")) {
-  files <- list.files(paste0(path, "/ets"))
+for (path in c("mortality")) {
+  files <- list.files(paste0(path, ""))
   files <- files[startsWith(files, "batch")]
   output <- list()
   for (batch in 1:length(files)) {
     print(sprintf("batch %s ...", batch))
-    store_path <- sprintf("%s/ets/batch_%s.rds", path, batch-1)
+    store_path <- sprintf("%s/batch_%s.rds", path, batch-1)
     dt <- readRDS(store_path)
     comb1 <- compute_comb1(dt)
     comb2 <- compute_comb2(dt)
     output[[batch]] <- list(comb1, comb2)
   }
-  saveRDS(output, sprintf("%s/ets/combination.rds", path))
+  saveRDS(output, sprintf("%s/combination.rds", path))
 }
 
 
-# combination of permute for mortality
-compute_comb3 <- function(batch) {
-  nls <- Filter(function(x) {
-    (x$representor != "") & (startsWith(x$cluster, "permute"))
-  }, batch$nl)
-  combined_rf <- list()
-  for (permute in 1:100) {
-    nls_ <- Filter(\(x) endsWith(x$cluster, paste0("-", permute)), nls)
-    stopifnot(length(nls_) == 12)
-    combined_rf[[permute]] <- do.call(abind::abind, list(purrr::map(nls_, function(x){x$rf$mint}), along = 0))
-    combined_rf[[permute]] <- apply(combined_rf[[permute]], c(2, 3), mean)
-  }
-  combined_rf
-}
-
-files <- list.files("mortality/ets")
-files <- files[startsWith(files, "batch")]
-output <- list()
-for (batch in 1:length(files)) {
-  print(sprintf("batch %s ...", batch))
-  store_path <- sprintf("mortality/ets/batch_%s.rds", batch-1)
-  dt <- readRDS(store_path)
-  output[[batch]] <- compute_comb3(dt)
-}
-saveRDS(output, "mortality/ets/combination_permute.rds")
+# # combination of permute for mortality
+# compute_comb3 <- function(batch) {
+#   nls <- Filter(function(x) {
+#     (x$representor != "") & (startsWith(x$cluster, "permute"))
+#   }, batch$nl)
+#   combined_rf <- list()
+#   for (permute in 1:100) {
+#     nls_ <- Filter(\(x) endsWith(x$cluster, paste0("-", permute)), nls)
+#     stopifnot(length(nls_) == 12)
+#     combined_rf[[permute]] <- do.call(abind::abind, list(purrr::map(nls_, function(x){x$rf$mint}), along = 0))
+#     combined_rf[[permute]] <- apply(combined_rf[[permute]], c(2, 3), mean)
+#   }
+#   combined_rf
+# }
+# 
+# files <- list.files("mortality/ets")
+# files <- files[startsWith(files, "batch")]
+# output <- list()
+# for (batch in 1:length(files)) {
+#   print(sprintf("batch %s ...", batch))
+#   store_path <- sprintf("mortality/ets/batch_%s.rds", batch-1)
+#   dt <- readRDS(store_path)
+#   output[[batch]] <- compute_comb3(dt)
+# }
+# saveRDS(output, "mortality/ets/combination_permute.rds")
 
 

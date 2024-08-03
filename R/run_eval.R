@@ -10,8 +10,7 @@ forecast_horizon <- 12
 frequency <- 12
 batch_length <- time_length - 96 - forecast_horizon
 
-source("R/metrics.R")
-source("R/baseforecast.R")
+
 
 
 hts.eval2 <- function(df, tts, bts, S, combination, base, comb_permute=NULL) {
@@ -55,22 +54,6 @@ hts.eval2 <- function(df, tts, bts, S, combination, base, comb_permute=NULL) {
   df
 }
 
-
-nl2tibble <- function(x) {
-  output <- vector("list", 6)
-  names(output) <- c("representor", "cluster", "distance", "S", "rf", "other")
-
-  for (i in seq_along(x)) {
-    for (n in names(x[[i]])) {
-      if (is.character(x[[i]][[n]])) {
-        output[[n]] <- append(output[[n]], x[[i]][[n]])
-      } else {
-        output[[n]] <- append(output[[n]], list(x[[i]][[n]]))
-      }
-    }
-  }
-  tibble::as_tibble(output)
-}
 
 
 library(dplyr)

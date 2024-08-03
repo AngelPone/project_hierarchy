@@ -7,29 +7,7 @@ library(tsutils)
 source("R/metrics.R")
 source("R/expr_utils.R")
 
-mcb_hierarchy_rmsse <- function(orig, rand, name) {
-  orig_rmsse <- orig %>%
-    rowwise() %>%
-    mutate(rmsse = mean(rmsse)) %>%
-    arrange(batch) %>%
-    pull(rmsse)
 
-  permute_idx <- sapply(strsplit(rand$cluster, "-"), function(x){
-    as.integer(x[length(x)])
-  })
-  rand_rmsse <- rand %>% mutate(cluster=permute_idx) %>%
-    rowwise() %>%
-    mutate(rmsse = mean(rmsse)) %>%
-    arrange(batch, cluster) %>%
-    tidyr::nest(rmsse = -"cluster") %>%
-    pull(rmsse) %>%
-    lapply(\(x) x %>% arrange(batch) %>% pull(rmsse)) %>%
-    do.call(cbind, .)
-
-  all_rmsse <- cbind(orig_rmsse, rand_rmsse)
-  colnames(all_rmsse) <- c(name, 1:100)
-  nemenyi(all_rmsse, plottype = "vmcb", target = name)
-}
 
 
 # natural vs its randomization
