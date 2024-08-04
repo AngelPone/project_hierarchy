@@ -77,6 +77,7 @@ write(sprintf("Natural ranks %s in its 100 twins, significantly better than %s, 
 pdf(sprintf("manuscript/figures/%s/cluster_vs_pc.pdf", path), 8, 6)
 par(mar=c(4,14,3,2))
 best_ <- readRDS(sprintf("%s/eval_cluster.rds", path))$best_
+best_name <- method_name(best_$representor, best_$distance, best_$cluster)
 cluster_hierarchy_rmsse <- mcb_hierarchy_rmsse(
   dt %>% filter(
     representor == best_$representor,

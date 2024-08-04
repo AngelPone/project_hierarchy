@@ -63,16 +63,7 @@ Rscript R/run_nlf.R mortality
 Rscript R/run_nlf.R tourism
 ```
 
-
-- Use the following code to generate evaluation.
-
-```shell
-Rscript R/run_eval.R tourism
-Rscript R/run_eval.R mortality
-```
-
-
-- Use the following code to generate figures used in empirical studies Section.
+- Use the following code to generate evaluation and figures used in twin hierarchies vs natural/best cluster hierarchy.
 
 ```shell
 Rscript R/run_summary_permute.R tourism ets
