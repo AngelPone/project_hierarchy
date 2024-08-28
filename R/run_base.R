@@ -1,16 +1,8 @@
 args <- commandArgs(trailingOnly = TRUE)
 path <- args[[1]]
 
-source("R/utils.R", chdir = T)
+source("R/utils.R")
 
-
-dt <- readRDS(sprintf("%s/data.rds", path))
-n <- NROW(dt$S)
-m <- NCOL(dt$S)
-time_length <- NROW(dt$data)
-forecast_horizon <- 12
-frequency <- 12
-batch_length <- time_length - 96 - forecast_horizon + 1
 
 
 REPRESENTORS <- c("ts-dr", "error-dr", "ts.features-dr", "error.features-dr", "ts", "error")

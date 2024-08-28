@@ -4,11 +4,20 @@ library(dplyr, quietly = TRUE)
 library(furrr, quietly = TRUE)
 library(purrr, quietly = TRUE)
 library(dtw, quietly = TRUE)
-
+library(Matrix, quietly = TRUE)
 plan(multisession, workers=8)
 
 
-source("expr_utils.R")
+# some quantities basically used in all scripts
+dt <- readRDS(sprintf("%s/data.rds", path))
+n <- NROW(dt$S)
+m <- NCOL(dt$S)
+time_length <- NROW(dt$data)
+forecast_horizon <- 12
+frequency <- 12
+batch_length <- time_length - 96 - forecast_horizon + 1
+
+
 
 #' RMSSE
 metric.rmsse <- function(obs, pred, hist) {
@@ -16,7 +25,7 @@ metric.rmsse <- function(obs, pred, hist) {
 }
 
 
-#' kmedoids
+#' kmedoids clustering
 #' 
 cluster.kmedoids <- function(distance_mat, n_clusters) {
   
@@ -249,7 +258,9 @@ features.compute <- function(data, frequency=frequency) {
   
   data$features <- list()
   
-  ts_features <- tsfeatures::tsfeatures(ts(data$bts, frequency = frequency), features = feature_lst)
+  ts_features <- tsfeatures::tsfeatures(ts(data$bts, frequency = frequency), 
+                                        features = feature_lst,
+                                        parallel = TRUE)
   ts_features <- t(unname(as.matrix(ts_features[,!(colnames(ts_features) %in% c("nperiods", "seasonal_period"))])))
   ts_features <- remove_zero_sd(ts_features)
   
@@ -578,21 +589,3 @@ nemenyi <- function (data, conf.level = 0.95, sort = c(TRUE, FALSE), plottype = 
                         k = cols.number, n = rows.number), class = "nemenyi"))
 }
 
-
-# add_result <- function(output, representotar, distance, 
-#                        cluster, rf, other = NULL) {
-#   if (is.null(output$representator)) {
-#     output$representator <- representotar
-#     output$distance <- distance
-#     output$cluster <- cluster
-#     output$rf <- list(rf)
-#     output$other <- list(other)
-#   } else {
-#     output$representator <- c(output$representator, representotar)
-#     output$distance <- c(output$distance, distance)
-#     output$cluster <- c(output$cluster, cluster)
-#     output$rf <- append(output$accuracy, list(rf))
-#     output$other <- append(output$other, list(other))
-#   }
-#   output
-# }
