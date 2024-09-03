@@ -147,24 +147,51 @@ hts.nlf <- function(htst, h, frequency) {
     return(htst)
   }
   
-  rfs <- future_map(htst$nl[idx2forecast], function(x) {
-    # two-level hierarchy
-    if (is.null(x$S)) {
-      return(list(
-        rf = reconcile.mint(rbind(rep(1, m), diag(m)), htst$basef, htst$resid)
-      ))
+  smat2sstr <- function(S) {
+    S_str <- c()
+    for (i in 1:NROW(S)) {
+      S_str <- c(S_str, do.call(paste0, as.list(S[i,])))
     }
-    mid_ts <- htst$bts %*% t(as.matrix(x$S))
-    mid_forecasts <- 
-      map(as.list(iterators::iter(mid_ts, by="column")), \(x) f.ets(x, h=h, frequency=frequency))
-    S <- rbind(rep(1, m), as.matrix(x$S), diag(m))
-    basef <- cbind(htst$basef[,1,drop=FALSE],
-                   do.call(cbind, map(mid_forecasts, "basef")),
-                   htst$basef[,2:NCOL(htst$basef)])
-    resid <- cbind(htst$resid[,1,drop=FALSE],
-                   do.call(cbind, map(mid_forecasts, "resid")),
-                   htst$resid[,2:NCOL(htst$resid)])
-    list(rf=reconcile.mint(S, basef, resid), basef=do.call(cbind, map(mid_forecasts, "basef")))
+    S_str
+  }
+  
+  S <- do.call(rbind, lapply(htst$nl[idx2forecast], function(g) { g$S }))
+  S_str <- smat2sstr(as.matrix(S))
+  fcasts <- list()
+  
+  for (idx in seq_along(S_str)) {
+    if (S_str[idx] %in% names(fcasts)) {
+      next
+    } else {
+      fcasts[[S_str[idx]]] <- S[idx, ]
+    }
+  }
+  S_toforecast <- do.call(rbind, fcasts)
+  allts <- htst$bts %*% t(S_toforecast)
+  bf <- future_map(as.list(iterators::iter(allts, by = "column")),
+                   \(x) f.ets(x, h, frequency))
+  names(bf) <- names(fcasts)
+  
+  rfs <- map(htst$nl[idx2forecast], function(nl) {
+    
+    S_nl <- NULL
+    if (!is.null(nl$S)) {
+      S_nl <- as.matrix(nl$S)
+    }
+    
+    S_str <- smat2sstr(S_nl)
+    basef_nl <- do.call(cbind, lapply(S_str, \(g) bf[[g]]$basef ))
+    resid_nl <- do.call(cbind, lapply(S_str, \(g) bf[[g]]$resid ))
+    
+    basef <- cbind(htst$basef[,1,drop=FALSE], 
+                   basef_nl, 
+                   htst$basef[,2:NCOL(htst$basef),drop=FALSE])
+    resid <- cbind(htst$resid[,1], resid_nl, htst$resid[,2:NCOL(htst$basef)])
+    
+    
+    S <- rbind(rep(1, NCOL(data$S)), S_nl, diag(NCOL(data$S)))
+    
+    list(rf=reconcile.mint(S, basef, resid), basef=basef_nl)
   })
   
   for (l in seq_along(idx2forecast)) {
@@ -307,7 +334,9 @@ distance.euclidean <- function(x, y) { sqrt(sum((x - y)^2)) }
 #' dtw distance
 distance.dtw <- function(x, y) { dtw(x, y, distance.only = TRUE)$distance }
 
-
+is.hts <- function(x) {
+  "hts" %in% class(x)
+}
 
 
 

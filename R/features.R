@@ -1,5 +1,5 @@
-get_number_series <- function(path, forecast_horizon = 12) {
-  dt <- readRDS(sprintf("%s/eval_cluster.rds", path, forecast_horizon))
+get_number_series <- function(path) {
+  dt <- readRDS(sprintf("%s/eval_cluster.rds", path))
   dt$dtb %>%
     filter(!startsWith(cluster, "permute")) %>%
     filter(!cluster %in% c("", "combination1", "combination2", "base")) %>%

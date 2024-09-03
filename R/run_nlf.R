@@ -1,16 +1,7 @@
 args <- commandArgs(trailingOnly = TRUE)
 path <- args[[1]]
 
-source("R/utils.R", chdir = T)
-
-
-dt <- readRDS(sprintf("%s/data.rds", path))
-n <- NROW(dt$S)
-m <- NCOL(dt$S)
-time_length <- NROW(dt$data)
-forecast_horizon <- 12
-frequency <- 12
-batch_length <- time_length - 96 - forecast_horizon + 1
+source("R/utils.R")
 
 for (batch in 0:(batch_length-1)) {
   print(sprintf("%s batch %s ....", Sys.time(), batch))

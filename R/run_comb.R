@@ -1,5 +1,6 @@
-
-source("R/utils.R", chdir = T)
+args <- commandArgs(trailingOnly = TRUE)
+path <- args[[1]]
+source("R/utils.R")
 
 compute_comb1 <- function(batch) {
   nls <- Filter(function(x) {
@@ -39,20 +40,19 @@ compute_comb2 <- function(batch) {
   rf[,c(1, (NCOL(rf)-m+1):NCOL(rf))]
 }
 
-for (path in c("mortality")) {
-  files <- list.files(paste0(path, ""))
-  files <- files[startsWith(files, "batch")]
-  output <- list()
-  for (batch in 1:length(files)) {
-    print(sprintf("batch %s ...", batch))
-    store_path <- sprintf("%s/batch_%s.rds", path, batch-1)
-    dt <- readRDS(store_path)
-    comb1 <- compute_comb1(dt)
-    comb2 <- compute_comb2(dt)
-    output[[batch]] <- list(comb1, comb2)
-  }
-  saveRDS(output, sprintf("%s/combination.rds", path))
+
+files <- list.files(paste0(path, ""))
+files <- files[startsWith(files, "batch")]
+output <- list()
+for (batch in 1:length(files)) {
+  print(sprintf("batch %s ...", batch))
+  store_path <- sprintf("%s/batch_%s.rds", path, batch-1)
+  dt <- readRDS(store_path)
+  comb1 <- compute_comb1(dt)
+  comb2 <- compute_comb2(dt)
+  output[[batch]] <- list(comb1, comb2)
 }
+saveRDS(output, sprintf("%s/combination.rds", path))
 
 
 

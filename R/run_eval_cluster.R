@@ -1,14 +1,7 @@
 args <- commandArgs(trailingOnly = TRUE)
 path <- args[[1]]
 
-source("R/utils.R", chdir = T)
-dt <- readRDS(sprintf("%s/data.rds", path))
-n <- NROW(dt$S)
-m <- NCOL(dt$S)
-time_length <- NROW(dt$data)
-forecast_horizon <- 12
-frequency <- 12
-batch_length <- time_length - 96 - forecast_horizon + 1
+source("R/utils.R")
 
 
 
@@ -48,15 +41,16 @@ dtb <- NULL
 
 combination <- readRDS(sprintf("%s/combination.rds", path))
 for (batch in 0:(batch_length-1)) {
-  print(sprintf("%s, %s", Sys.time(), batch))
   store_path <- sprintf("%s/batch_%s.rds", path, batch)
   data <- readRDS(store_path)
-  data_tibble <- nl2tibble(data$nl)
+  data_tibble <- nl2tibble(data$nl) %>%
+    filter(!startsWith(cluster, "permute"))
   data_tibble <- hts.eval(data_tibble, data$tts, data$bts, dt$S, combination[[batch+1]], data$basef)
   
   data_tibble <- data_tibble %>% select(-rf, -other) %>% mutate(batch = batch)
   dtb <- rbind(dtb, data_tibble)
 }
+
 
 #' mcb all cluster hierarchies, grouped, base, natural, two-level
 bench_rmsse <- dtb %>%
@@ -68,7 +62,7 @@ bench_rmsse <- dtb %>%
 
 stopifnot(NROW(bench_rmsse) == batch_length * 16)
 
-pdf(sprintf("manuscript/figures/%s/mcb_benchmarks.pdf", path), 8, 6)
+pdf(sprintf("manuscript/figures/%s/Figure4_mcb_benchmarks.pdf", path), 8, 6)
 par(mex = 1.1)
 bench_rmsse %>%
   rowwise() %>%
@@ -90,7 +84,7 @@ bench_rmsse <- dtb %>%
 
 stopifnot(NROW(bench_rmsse) == batch_length * 17)
 
-pdf(sprintf("manuscript/figures/%s/mcb_combination.pdf", path), 8, 6)
+pdf(sprintf("manuscript/figures/%s/Figure12_mcb_combination.pdf", path), 8, 6)
 par(mex = 1.1)
 bench_rmsse %>%
   rowwise() %>%
@@ -109,6 +103,7 @@ methods <- c(
   "TS-DTW-ME", "TS-DTW-HC", "ER-DTW-ME", "ER-DTW-HC",
   "Combination"
 )
+
 #' save table to csv 
 #' table only for total and bottom level
 csv_ <- bench_rmsse %>% rowwise() %>%
@@ -116,7 +111,7 @@ csv_ <- bench_rmsse %>% rowwise() %>%
   ungroup() %>%
   group_by(method, representor, distance, cluster) %>% summarise(rmsse = mean(rmsse))
 csv_[match(methods, csv_$method), c("method", "rmsse")] %>%
-  write.csv(sprintf("manuscript/figures/%s/rmsse_twolevel.csv", path))
+  write.csv(sprintf("manuscript/figures/%s/Table3_Table8.csv", path))
 
 csv_ %>% filter(representor != "") %>%
   arrange(rmsse) -> csv_
@@ -131,15 +126,25 @@ bench_rmsse <- dtb %>%
   mutate(top = rmsse[1], middle=mean(rmsse[2:(n-m)]), bottom=mean(rmsse[(n-m+1):n]),
          method = method_name(representor, distance, cluster)) %>%
   ungroup() %>%
-  select(method, batch, top, middle, bottom) %>%
+  select(method, batch, top, middle, bottom)
+
+pdf(sprintf("manuscript/figures/%s/supply_figure_mcb_combination_middle.pdf", path), 8, 6)
+par(mex = 1.1)
+bench_rmsse %>%
+  select(method, batch, middle) %>%
+  tidyr::pivot_wider(id_cols = "batch", names_from = "method", values_from = "middle") %>%
+  select(-batch) %>%
+  tsutils::nemenyi(plottype = "vmcb")
+dev.off()
+
+
+bench_rmsse <- bench_rmsse %>%
   group_by(method) %>%
   summarise(across(c(top, middle, bottom), \(x) mean(x)))
 
 bench_rmsse[match(methods, bench_rmsse$method),] %>%
-  write.csv(sprintf("manuscript/figures/%s/rmsse_threelevel.csv", path))
+  write.csv(sprintf("manuscript/figures/%s/supply_table_rmsse_threelevel.csv", path))
 
 saveRDS(list(dtb=dtb,
              best_ = best_cluster_method), sprintf("%s/eval_cluster.rds", path))
-
-
 

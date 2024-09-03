@@ -107,7 +107,8 @@ write(sprintf("The best cluster ranks %s in its 100 twins, significantly better 
 
 if (path == "mortality") {
   # calculate combination of twin hierarchies
-  pdf(sprintf("manuscript/figures/%s/comb_vs_pc.pdf", path), 6, 8)
+  pdf(sprintf("manuscript/figures/%s/comb_vs_pc.pdf", path), 8, 6)
+  par(mar=c(4,14,3,2))
   mcb <- mcb_hierarchy_rmsse(
     dt %>% filter(cluster == "combination1"),
     dt %>% filter(startsWith(cluster, "permute-combination1")),
