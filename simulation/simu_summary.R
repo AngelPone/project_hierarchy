@@ -1,8 +1,7 @@
 rm(list = ls())
 dt <- readRDS("simulation/simulation.rds")
 library(dplyr)
-source("R/metrics.R")
-source("R/expr_utils.R")
+source("R/utils.R")
 
 forecast_horizon <- 1
 
@@ -58,7 +57,7 @@ test <- function(mat, name) {
 }
 
 # natural hierarchy vs its counterpart
-pdf("manuscript/figures/hierarchy_rmsse/simulation/P3_c_vs_pc.pdf", width = 10, height = 5)
+pdf("manuscript/figures/simulation/P3_c_vs_pc.pdf", width = 10, height = 5)
 par(mar=c(4,18,3,2))
 natural_ <- evaluate_idx(best_hierarchy)
 natural_test <- test(cbind(natural_, evaluate_idx(permute_best)), "Cluster-trend-season")
@@ -127,7 +126,7 @@ calculate_comb <- function() {
 print("Evaluating comb ...")
 comb_rmsse <- calculate_comb()
 # # 51
-pdf("manuscript/figures/hierarchy_rmsse/simulation/P4.pdf", width = 8, height = 6)
+pdf("manuscript/figures/simulation/P4.pdf", width = 8, height = 6)
 comb_test <- test(comb_rmsse, "Combination")
 dev.off()
 
@@ -144,11 +143,11 @@ clusters_tbl <- data.frame(
 ) %>%
   arrange(rmsse) %>%
   mutate(rmsse = round(rmsse, digits = 2)) %>%
-  write.csv("manuscript/figures/hierarchy_rmsse/simulation/simulation_methods.csv")
+  write.csv("manuscript/figures/simulation/simulation_methods.csv")
 
   
 
-pdf("manuscript/figures/hierarchy_rmsse/simulation/P3_mcb.pdf", width = 8, height = 4)
+pdf("manuscript/figures/simulation/P3_mcb.pdf", width = 8, height = 4)
 tsutils::nemenyi(cluster_mat, plottype = "vmcb")
 dev.off()
 
