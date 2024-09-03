@@ -13,19 +13,25 @@
 \begin{tikzpicture}[node distance=2cm]
 
     % \node(start)[startstop]{Start};
-    \node(A)[draw, circle, minimum size=0.2cm]{};
-    \node(B)[draw, circle, minimum size=0.2cm, below left=0.5cm of A]{};
     
+    \node(B)[draw, circle, minimum size=0.2cm]{};
+    \node(A)[draw, circle, minimum size=0.2cm, above right=0.3cm and 0.9cm of B]{};
     \node(D)[draw, circle, minimum size=0.2cm, below left=0.5cm of B]{};
     \node(F)[draw, circle, minimum size=0.2cm, below left=0.5cm of D]{};
     \node(G)[draw, circle, minimum size=0.2cm, below right=0.5cm of D]{};
+    
+
     \node(E)[draw, circle, minimum size=0.2cm, right=0.8727922cm of G]{};
     \node(C)[draw, circle, minimum size=0.2cm, right=0.8727922cm of E]{};
-    
+    \node(I)[draw, circle, minimum size=0.2cm, above right=0.5cm of C]{};
+    \node(H)[draw, circle, minimum size=0.2cm, right=0.8727922cm of C]{};
+
     \draw (A) -- (B) -- (D) -- (F);
     \draw (D) -- (G);
     \draw (B) -- (E);
-    \draw (A) -- (C);
+    \draw (A) -- (I);
+    \draw (I) -- (C);
+    \draw (H) -- (I);
     
 
 

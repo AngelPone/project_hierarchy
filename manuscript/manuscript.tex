@@ -14,7 +14,7 @@
 \let\proglang=\textsf
 \setcounter{MaxMatrixCols}{20}
 \usepackage{enumitem}
-
+% \usepackage[pagewise]{lineno}
 
 % Define a new counter for your research questions
 \newcounter{researchquestion}
@@ -47,29 +47,28 @@
 
 
 
-  \author[label1]{Bohan Zhang\corref{cor1}}
-  \address[label1]{School of Economics and Management, Beihang University, Beijing, China}
-  \ead{zhangbohan@buaa.edu.cn}
-  \cortext[cor1]{Corresponding author.}
-  \author[label2]{Anastasios Panagiotelis}
-  \address[label2]{The University of Sydney Business School, NSW 2006, Australia}
-  \author[label3]{Han Li}
-  \address[label3]{Department of Economics, The University of Melbourne, VIC 3010, Australia}
+%   \author[label1]{Bohan Zhang\corref{cor1}}
+%   \address[label1]{School of Economics and Management, Beihang University, Beijing, China}
+%   \ead{zhangbohan@buaa.edu.cn}
+%   \cortext[cor1]{Corresponding author.}
+%   \author[label2]{Anastasios Panagiotelis}
+%   \address[label2]{The University of Sydney Business School, NSW 2006, Australia}
+%   \author[label3]{Han Li}
+%   \address[label3]{Department of Economics, The University of Melbourne, VIC 3010, Australia}
 
   \begin{abstract}
 
     Forecast reconciliation has attracted significant research interest in recent years, with most studies taking the hierarchy of time series as given. We extend existing work that uses time series clustering to construct hierarchies, with the goal of improving forecast accuracy, in three ways. First, we investigate multiple approaches to clustering, including not only different clustering algorithms, but also the way time series are represented and how distance between time series is defined. We find that cluster-based hierarchies lead to improvements in forecast accuracy relative to two-level hierarchies. Second, we devise an approach based on random permutation of hierarchies, keeping the structure of the hierarchy fixed, while time series are randomly allocated to clusters. In doing so, we find that improvements in forecast accuracy that accrue from using clustering do not arise from grouping together similar series but from the structure of the hierarchy. Third, we propose an approach based on averaging forecasts across hierarchies constructed using different clustering methods, that is shown to outperform any single clustering method. All analysis is carried out on two benchmark datasets and a simulated dataset. Our findings provide new insights into the role of hierarchy construction in forecast reconciliation and offer valuable guidance on forecasting practice. \\
-    
-    %the dynamics between ``grouping'' and ``structure'', which lead to an improved understanding of forecast reconciliation.\\
 
   \end{abstract}
 
   \begin{keyword}
   Forecast reconciliation \sep
-  Hierarchical time series \sep
   Clustering \sep
   Hierarchy construction \sep
-  Forecast combination
+  Forecast combination \sep
+  Mortality \sep
+  Tourism flows
   \end{keyword}
 
 \end{frontmatter}
@@ -147,7 +146,7 @@ In summary, this paper presents four main contributions:
 \end{itemize}
 
 The rest of the paper is organized as follows. Section~\ref{sec:methodology} describes the trace minimization reconciliation methods employed and the clustering-based hierarchical time series augmentation techniques considered. Section~\ref{sec:cluster} first introduces the two datasets used, and then investigates RQ1, in particular the performance of cluster hierarchy compared to natural hierarchy and two-level hierarchy. Section~\ref{sec:permutation} introduces the novel permutation approach, followed by the investigation of RQ2 via evaluating the performance of natural hierarchy and the best performing cluster hierarchy compared to their respective random twins. To avoid the concern that clusters found in the empirical datasets are spurious, a simulation study is considered in Section~\ref{sec:simulation}. Section~\ref{sec:combination} covers the forecast combination approach raised in RQ3. Section~\ref{sec:conclusion} concludes this paper with discussions on the findings and outlines future research directions. 
-Data and code for reproducing the results in this paper are available at \url{https://github.com/AngelPone/project_hierarchy}.
+% Data and code for reproducing the results in this paper are available at \url{https://github.com/AngelPone/project_hierarchy}.
 
 %Section~\ref{sec:related_work} reviews related work in time series clustering, forecast reconciliation and clustering-based forecast reconciliation. In Section~\ref{sec:method} we introduce the proposed framework, elaborating on three approaches: cluster hierarchies, random hierarchies and combination hierarchies. The simulation study is presented in Section~\ref{sec:simulation}, while Section~\ref{sec:emp} details empirical experiments conducted on the Australian tourism dataset and U.S. mortality dataset. Finally, Section~\ref{sec:conclusion} concludes this paper with discussions on the findings and outlines future research directions.
 
@@ -252,7 +251,7 @@ It is important to note that raw time series and in-sample error representations
 A potential shortcoming to using the time series or forecast error as a representation is their high dimensionality, which is equal to the sample size of the training data. To address this concern, low dimension summaries of ``features'' can be considered. Features have been used in the context
 %Features, widely employed in capturing time series characteristics, play a pivotal role in various time series applications, including 
 time series clustering by \cite{tianoFeatTSFeaturebasedTime2021}, and for forecasting by \cite{wangUncertaintyEstimationFeaturebased2022} and \cite{ liFeaturebasedIntermittentDemand2023}. 
-We consider features of both the raw time series and the in-sample forecast error as representations. After filtering out the features that are constant across all series, we select $56$ features.\footnote{The list and descriptions of features are available in the online GitHub repository.} These time series features are calculated by the \code{tsfeatures} (\citealp{tsfeatures}) package in R. %have been applied in several feature-based forecasting studies, \textit{e.g.}, \cite{montero-mansoFFORMAFeaturebasedForecast2020}.
+We consider features of both the raw time series and the in-sample forecast error as representations. After filtering out the features that are constant across all series, we select $56$ features calculated by the \code{tsfeatures} (\citealp{tsfeatures}) package in R. %have been applied in several feature-based forecasting studies, \textit{e.g.}, \cite{montero-mansoFFORMAFeaturebasedForecast2020}.
 To the best of our knowledge, we are the first to utilize in-sample forecast error and time series features as representations in the context of forecast reconciliation.
 %\sout{These representations allow us to gain insights into the diverse aspects of hierarchical time series data}.
 
@@ -888,16 +887,17 @@ For example, while we used equally-weighted combinations in this study, there is
 %Finally, our study was centered around point forecast reconciliation and cross-sectional hierarchy. However, the field of probabilistic forecast reconciliation has recently gained significant interest, as evidenced by research like \cite{panagiotelisProbabilisticForecastReconciliation2023} and \cite{jeonProbabilisticForecastReconciliation2019}. Applying hierarchy construction approaches to probabilistic forecast reconciliation presents a novel and potentially fruitful research avenue. This approach could provide deeper insights and more robust forecast reconciliation methods, particularly in scenarios where uncertainty and variability are significant factors.
 Also, our results are based on cross-sectional data, this could be extended to explore temporal (\citealp{athanasopoulosForecastingTemporalHierarchies2017}) and cross-temporal hierarchies (\citealp{girolimettoCrosstemporalProbabilisticForecast2023a}). Finally, more work could be carried out to understand whether some middle levels contribute more to forecast accuracy than others, and accordingly ``pruning'' the less useful middle level series.
 
+% \section*{Acknowledgements}
+
+% Bohan Zhang is supported by the international joint doctoral education fund of Beihang University. Han Li is supported by the Australian Research Council Discovery Projects funding scheme (DP220100090) 
 
 \clearpage 
 \newpage 
 
 
 
-%\section*{Acknowledgements}
 
-%Bohan Zhang is supported by the international joint doctoral education fund of Beihang University.
-
+% \nolinenumbers
 \begingroup
 \setstretch{1.15}
 \bibliographystyle{agsm}
