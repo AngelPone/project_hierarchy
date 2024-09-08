@@ -62,7 +62,7 @@ bench_rmsse <- dtb %>%
 
 stopifnot(NROW(bench_rmsse) == batch_length * 16)
 
-pdf(sprintf("manuscript/figures/%s/Figure4_mcb_benchmarks.pdf", path), 8, 6)
+jpeg(sprintf("figures/Figure4_%s_mcb_benchmarks.jpg", path), height = 600/1.3, width = 800/1.3)
 par(mex = 1.1)
 bench_rmsse %>%
   rowwise() %>%
@@ -84,7 +84,7 @@ bench_rmsse <- dtb %>%
 
 stopifnot(NROW(bench_rmsse) == batch_length * 17)
 
-pdf(sprintf("manuscript/figures/%s/Figure12_mcb_combination.pdf", path), 8, 6)
+jpeg(sprintf("figures/Figure12_%s_mcb_combination.jpg", path), height = 600/1.3, width = 800/1.3)
 par(mex = 1.1)
 bench_rmsse %>%
   rowwise() %>%
@@ -111,7 +111,7 @@ csv_ <- bench_rmsse %>% rowwise() %>%
   ungroup() %>%
   group_by(method, representor, distance, cluster) %>% summarise(rmsse = mean(rmsse))
 csv_[match(methods, csv_$method), c("method", "rmsse")] %>%
-  write.csv(sprintf("manuscript/figures/%s/Table3_Table8.csv", path))
+  write.csv(sprintf("figures/Table3_%s_Table8.csv", path))
 
 csv_ %>% filter(representor != "") %>%
   arrange(rmsse) -> csv_
@@ -128,7 +128,7 @@ bench_rmsse <- dtb %>%
   ungroup() %>%
   select(method, batch, top, middle, bottom)
 
-pdf(sprintf("manuscript/figures/%s/supply_figure_mcb_combination_middle.pdf", path), 8, 6)
+jpeg(sprintf("figures/FigureS1_%s_mcb_combination_middle.jpg", path), height = 600/1.3, width = 800/1.3)
 par(mex = 1.1)
 bench_rmsse %>%
   select(method, batch, middle) %>%
@@ -143,7 +143,7 @@ bench_rmsse <- bench_rmsse %>%
   summarise(across(c(top, middle, bottom), \(x) mean(x)))
 
 bench_rmsse[match(methods, bench_rmsse$method),] %>%
-  write.csv(sprintf("manuscript/figures/%s/supply_table_rmsse_threelevel.csv", path))
+  write.csv(sprintf("figuresTableS1_%s_rmsse_threelevel.csv", path))
 
 saveRDS(list(dtb=dtb,
              best_ = best_cluster_method), sprintf("%s/eval_cluster.rds", path))

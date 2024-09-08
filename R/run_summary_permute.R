@@ -53,7 +53,7 @@ acc <- function() {
 
 dt <- acc()
 
-pdf(sprintf("manuscript/figures/%s/natural_vs_pn.pdf", path), width = 8, height = 6)
+jpeg(sprintf("figures/Figure6_%s_natural_vs_pn.jpg", path), height = 600/1.3, width = 800/1.3)
 par(mar=c(4,14,3,2))
 natural_hierarchy <- mcb_hierarchy_rmsse(
   dt %>% filter(cluster == "natural"),
@@ -71,10 +71,10 @@ sig_worse <-
 
 write(sprintf("Natural ranks %s in its 100 twins, significantly better than %s, significantly worse than %s",
               rank, sig_better, sig_worse),
-      sprintf("manuscript/figures/%s/natural_vs_pn.txt", path))
+      sprintf("figures/%s_natural_vs_pn.txt", path))
 
 
-pdf(sprintf("manuscript/figures/%s/cluster_vs_pc.pdf", path), 8, 6)
+jpeg(sprintf("figures/Figure7_%s_cluster_vs_pc.jpg", path), height = 600/1.3, width = 800/1.3)
 par(mar=c(4,14,3,2))
 best_ <- readRDS(sprintf("%s/eval_cluster.rds", path))$best_
 best_name <- method_name(best_$representor, best_$distance, best_$cluster)
@@ -101,13 +101,13 @@ sig_worse <- length(which(itl2 < itl1[best_name]))
 
 write(sprintf("The best cluster ranks %s in its 100 twins, significantly better than %s, significantly worse than %s",
               rank, sig_better, sig_worse),
-      sprintf("manuscript/figures/%s/cluster_vs_pc.txt", path))
+      sprintf("figures/%s_cluster_vs_pc.txt", path))
 
 
 
 if (path == "mortality") {
   # calculate combination of twin hierarchies
-  pdf(sprintf("manuscript/figures/%s/comb_vs_pc.pdf", path), 8, 6)
+  jpeg(sprintf("figures/Figure13_%s_comb_vs_pc.jpg", path), height = 600/1.3, width = 800/1.3)
   par(mar=c(4,14,3,2))
   mcb <- mcb_hierarchy_rmsse(
     dt %>% filter(cluster == "combination1"),

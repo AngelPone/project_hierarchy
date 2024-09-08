@@ -1,3 +1,4 @@
+library(dplyr)
 get_number_series <- function(path) {
   dt <- readRDS(sprintf("%s/eval_cluster.rds", path))
   dt$dtb %>%
@@ -14,7 +15,7 @@ get_number_series <- function(path) {
 
 rbind(get_number_series("mortality"), get_number_series("tourism")) %>%
   tidyr::pivot_wider(values_from = "S", names_from = "path") %>%
-  write.csv("manuscript/figures/n_series.csv")
+  write.csv("figures/Table4.csv")
 
 
 
@@ -47,4 +48,4 @@ tourism_features %>%
   group_by(features, path) %>%
   summarise(value = mean(value)) %>%
   tidyr::pivot_wider(names_from = "path", values_from = "value") %>%
-  write.csv("manuscript/figures/features.csv")
+  write.csv("figures/Table2.csv")
