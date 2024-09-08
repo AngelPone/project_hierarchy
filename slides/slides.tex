@@ -189,7 +189,7 @@
    \vskip 0.5cm
 \textbf{The 44th International Symposium on Forecasting, Dijon, France}
 }
-	\date{30 June - 3 July, 2024} % Date, can be changed to a custom date
+	\date{3 July, 2024} % Date, can be changed to a custom date
 
 	%\logo{\includegraphics[height=0.7cm]{Figures/logo_all.png}\vspace{-0.3cm}}
  
@@ -259,7 +259,7 @@
 \begin{frame}{Forecast reconciliation: the forecast combination perspective}
 
 	\begin{itemize}
-		\item Forecast reconciliation can be interpreted from the forecast combination perspective (\citealp{hollymanUnderstandingForecastReconciliation2021,difonzoForecastCombinationbasedForecast2024}).
+		\item Forecast reconciliation can be interpreted from the forecast combination perspective (\citealp{hollymanUnderstandingForecastReconciliation2021,di2024forecast}).
 		\item Reconciled forecasts are weighted combination of ``direct'' and ``indirect'' base forecasts. 
 		\[
 			\tilde{y}_{AA} = w_1 \hat y_{AA} + w_2 (\hat y_{A} -\hat y_{AB}) + w_3 (\hat y_{Total} - \hat y_{AB} - \hat y_{BA} - \hat y_{BB})
@@ -286,7 +286,7 @@
 
 \begin{frame}{Research questions}
 	\begin{researchquestion}
-		In terms of forecast performance, can {\color{red} the use of middle level series lead to improvement} compared to a two-level hierarchy (consisting of only top and bottom time series)? If so, is it possible to {\color{red} construct hierarchies in a data-driven way} that leads to further improvements in forecast accuracy?
+		In terms of forecast performance, can {\color{red} augmenting middle level series lead to improvement}? If so, is it possible to {\color{red} construct hierarchies in a data-driven way} that leads to further improvements in forecast accuracy?
 	\end{researchquestion}
 
 	\begin{figure}
@@ -319,6 +319,9 @@
 \end{frame}
 
 
+
+
+
 \begin{frame}{Research questions}
 	
 	With {\color{red} multiple hierarchies available} and inspired by the forecast combination literature (\citealp{wangForecastCombinations50year2022}), we consider the last research question:
@@ -333,7 +336,7 @@
 \section{Time series clustering-based forecast reconciliation}
 
 \begin{frame}{Time series clustering-based forecast reconciliation}
-	To the best of our knowledge, four studies have attempted to improve forecast accuracy in a reconciliation setting by constructing middle levels of the hierarchy using time series clustering.
+	Some previous studies have attempted to improve forecast accuracy in a reconciliation setting by constructing middle levels of the hierarchy using time series clustering.
 
 	\begin{itemize}
 		\item \cite{pangHierarchicalElectricityTime2018} and \cite{pangHierarchicalElectricityTime2022} propose to employ K-means algorithm to group similar electricity and solar power time series.
@@ -348,14 +351,10 @@
 
 	The time series representation refers to the object that acts as an input for time series clustering. We consider four representations:
 	\begin{itemize}
-		\item {\color{red} Raw time series}.
-		\item {\color{red} In-sample one-step-ahead forecast error}. A key step in MinT reconciliation is to estimate $\boldsymbol{W}_h$ based on in-sample forecast error.
-		\item {\color{red} Time series features of raw time series}.
-		\item {\color{red} Time series features of in-sample one-step-ahead forecast error}. 
-		\begin{itemize}
-			\item Features are low dimensional representation of time series, and have been used in various tasks such as clustering and forecasting.
-			\item $56$ features calculated by the \texttt{tsfeatures} package in R are included.
-		\end{itemize}
+		\item {Raw time series}.
+		\item {In-sample one-step-ahead forecast error}. 
+		\item {Time series features of raw time series}.
+		\item {Time series features of in-sample one-step-ahead forecast error}.
 	\end{itemize}
 \end{frame}
 
@@ -418,18 +417,18 @@
 
 \begin{frame}{Australian tourism dataset}
 	\begin{figure}
-		\includegraphics[width=0.8\textwidth]{../manuscript/figures/tourism.pdf}
+		\includegraphics[width=0.8\textwidth]{tourism.pdf}
 	\end{figure}
 	\begin{itemize}
 		\item Monthly Australian domestic tourism dataset, covering the period from January 1998 to December 2016 (\citealp{wickramasuriyaOptimalForecastReconciliation2019}).
-		\item Consists of $555$ time series with $304$ of those at the bottom level. The middle-level series are constructed based on state, region, city and travel purpose.
+		\item Consists of $525$ unique time series with $304$ of those at the bottom level. The middle-level series are constructed based on state, region, city and travel purpose.
 	\end{itemize}
 	
 \end{frame}
 
 \begin{frame}{U.S. cause-of-death count dataset}
 	\begin{figure}
-		\includegraphics[width=0.8\textwidth]{../manuscript/figures/mortality.pdf}
+		\includegraphics[width=0.8\textwidth]{mortality.pdf}
 	\end{figure}
 	\begin{itemize}
 		\item Monthly cause-specific death count data of U.S. for the period between January 1999 and December 2019.
@@ -454,8 +453,8 @@
 	
 	\begin{figure}
 		\centering
-		\includegraphics[width=0.4\textwidth]{../manuscript/figures/hierarchy_rmsse/tourism/P3_mcb_benchmarks_h12.pdf}
-		\includegraphics[width=0.4\textwidth]{../manuscript/figures/hierarchy_rmsse/mortality/P3_mcb_benchmarks_h12.pdf}
+		\includegraphics[width=0.4\textwidth]{hierarchy_rmsse/tourism/P3_mcb_benchmarks_h12.pdf}
+		\includegraphics[width=0.4\textwidth]{hierarchy_rmsse/mortality/P3_mcb_benchmarks_h12.pdf}
 		\caption{Average ranks and 95\% confidence intervals for twelve cluster hierarchies and three benchmarks on tourism dataset (left) and mortality dataset (right) based on MCB test.}
 	\end{figure}
 
@@ -480,7 +479,7 @@
 
 	\begin{figure}
 		\centering
-		\includegraphics[width=0.8\textwidth]{../manuscript/figures/aggcluster_random.pdf}
+		\includegraphics[width=0.8\textwidth]{aggcluster_random.pdf}
 		\caption{Examples of a given hierarchy and its “twin”.}
 	\end{figure}
 \end{frame}
@@ -491,8 +490,8 @@ We construct $100$ twin hierarchies for each of the two natural hierarchies and 
 
 \begin{figure}
 	\centering
-	\includegraphics[width=0.45\textwidth]{../manuscript/figures/hierarchy_rmsse/tourism/P2_natural_vs_pn_h12.pdf}
-	\includegraphics[width=0.45\textwidth]{../manuscript/figures/hierarchy_rmsse/mortality/P2_natural_vs_pn_h12.pdf}
+	\includegraphics[width=0.45\textwidth]{hierarchy_rmsse/tourism/P2_natural_vs_pn_h12.pdf}
+	\includegraphics[width=0.45\textwidth]{hierarchy_rmsse/mortality/P2_natural_vs_pn_h12.pdf}
 	\caption{Average ranks and 95\% confidence intervals for natural hierarchy and its 100 twins, tourism dataset (left) and mortality dataset(right).}
 \end{figure}
 	
@@ -504,8 +503,8 @@ We construct $100$ twin hierarchies for each of the two natural hierarchies and 
 	
 	\begin{figure}
 		\centering
-		\includegraphics[width=0.45\textwidth]{../manuscript/figures/hierarchy_rmsse/tourism/P3_cluster_vs_pc_h12.pdf}
-		\includegraphics[width=0.45\textwidth]{../manuscript/figures/hierarchy_rmsse/mortality/P3_cluster_vs_pc_h12.pdf}
+		\includegraphics[width=0.45\textwidth]{hierarchy_rmsse/tourism/P3_cluster_vs_pc_h12.pdf}
+		\includegraphics[width=0.45\textwidth]{hierarchy_rmsse/mortality/P3_cluster_vs_pc_h12.pdf}
 		\caption{Average ranks and 95\% confidence intervals for the best cluster hierarchy and its 100 twins, tourism dataset (left) and mortality dataset(right).}
 	\end{figure}
 		
@@ -531,8 +530,8 @@ We construct $100$ twin hierarchies for each of the two natural hierarchies and 
 \begin{frame}{Forecast combination}
 	\begin{figure}
 	\centering
-	\includegraphics[width=0.45\textwidth]{../manuscript/figures/hierarchy_rmsse/tourism/P4_benchmarks_h12.pdf}
-	\includegraphics[width=0.45\textwidth]{../manuscript/figures/hierarchy_rmsse/mortality/P4_benchmarks_h12.pdf}
+	\includegraphics[width=0.45\textwidth]{hierarchy_rmsse/tourism/P4_benchmarks_h12.pdf}
+	\includegraphics[width=0.45\textwidth]{hierarchy_rmsse/mortality/P4_benchmarks_h12.pdf}
 	\caption{Average ranks and 95\% confidence intervals for all approaches on tourism dataset(left) and mortality dataset(right) based on MCB test}
 	\end{figure}
 	\begin{itemize}
@@ -570,7 +569,11 @@ We construct $100$ twin hierarchies for each of the two natural hierarchies and 
 	%	\item[] Any questions/comments/suggestions?
 		\vspace{-0.05in}
 		
-		\item[] \small\color{purple}Contact email: {\color{blue}   zhangbohan@buaa.edu.cn}
+		\item[] \small\color{purple}Homepage: {\color{blue}   \url{https://bohan-zhang.com}}
+            \item[] \small\color{purple}Paper on arXiv: {\color{blue} \url{https://arxiv.org/abs/2404.06064}}
+
+    \vspace{0.1cm}
+  {\large\color{black} Vote for me on Whova, thanks!}
    
   %\\
 %		\color{purple}Research Gate page:  \textit{http://www.researchgate.net/profile/Han\_Li51}
@@ -583,8 +586,10 @@ We construct $100$ twin hierarchies for each of the two natural hierarchies and 
 
 
 \begin{frame}[noframenumbering]{References}
+\footnotesize
+\vspace{-0.02in}
 	\bibliographystyle{agsm}
-	\bibliography{../manuscript/references.bib}		
+	\bibliography{R1/references.bib}		
 \end{frame}
 
 \end{document}
