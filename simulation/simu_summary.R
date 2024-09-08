@@ -1,10 +1,14 @@
 rm(list = ls())
 dt <- readRDS("simulation/simulation.rds")
 library(dplyr)
-source("R/metrics.R")
-source("R/expr_utils.R")
+source("simulation/utils.R")
 
 forecast_horizon <- 1
+
+
+metric.rmsse <- function(obs, pred, hist) {
+  sqrt(mean((obs - pred)^2) / mean(diff(hist, 12)^2))
+}
 
 rmsse <- function(pred, obs, hist) {
   obs <- cbind(rowSums(obs), obs)
@@ -58,7 +62,7 @@ test <- function(mat, name) {
 }
 
 # natural hierarchy vs its counterpart
-pdf("manuscript/figures/hierarchy_rmsse/simulation/P3_c_vs_pc.pdf", width = 10, height = 5)
+jpeg("figures/Figure11.jpg", width = 600 *1.4, height = 300*1.4)
 par(mar=c(4,18,3,2))
 natural_ <- evaluate_idx(best_hierarchy)
 natural_test <- test(cbind(natural_, evaluate_idx(permute_best)), "Cluster-trend-season")
@@ -97,40 +101,6 @@ calculate_base <- function() {
   }))
 }
 
-calculate_comb <- function() {
-  if (file.exists("simulation/comb.rds")) {
-    return(readRDS("simulation/comb.rds"))
-  }
-  method_idx <- c(2, 303, 304, 305)
-  all_rmsse <- NULL
-  for (i in seq_along(dt$acc)) {
-    print(i)
-    tts <- t(dt$series[[i]][, 133:144])
-    bts <- t(dt$series[[i]][, 1:132])
-    f_orig_ <- apply(simplify2array(dt$acc[[i]][method_idx]), c(1, 2), mean)
-    f_permu_ <- lapply(1:100, function(j) {
-      apply(simplify2array(
-        dt$acc[[i]][c(permute_best[j], permute_trend[j], permute_season[j], permute_trend_exis[j])]
-      ), c(1, 2), mean)
-    })
-
-    rmsse_orig <- rmsse(f_orig_, tts, bts)
-    rmsse_permu_ <- sapply(iterators::iter(f_permu_), function(g) {
-      rmsse(g, tts, bts)
-    })
-    all_rmsse <- rbind(all_rmsse, c(rmsse_orig, rmsse_permu_))
-  }
-  saveRDS(all_rmsse, "simulation/comb.rds")
-  all_rmsse
-}
-
-print("Evaluating comb ...")
-comb_rmsse <- calculate_comb()
-# # 51
-pdf("manuscript/figures/hierarchy_rmsse/simulation/P4.pdf", width = 8, height = 6)
-comb_test <- test(comb_rmsse, "Combination")
-dev.off()
-
 
 print("evaluating base ...")
 base_ <- calculate_base()
@@ -144,22 +114,47 @@ clusters_tbl <- data.frame(
 ) %>%
   arrange(rmsse) %>%
   mutate(rmsse = round(rmsse, digits = 2)) %>%
-  write.csv("manuscript/figures/hierarchy_rmsse/simulation/simulation_methods.csv")
+  write.csv("figures/Table7.csv")
 
   
 
-pdf("manuscript/figures/hierarchy_rmsse/simulation/P3_mcb.pdf", width = 8, height = 4)
+jpeg("figures/Figure10.jpg", width = 600, height = 300)
 tsutils::nemenyi(cluster_mat, plottype = "vmcb")
 dev.off()
+ 
 
-output <- list()
-output$cluster <- c(
-  which(names(natural_test$means) == "Cluster-trend-season"),
-  mean(natural_)
-)
 
-output$comb <- c(
-  which(names(comb_test$means) == "Combination"),
-  mean(comb_rmsse[, 1])
-)
-data.frame(output) %>% write.csv("manuscript/figures/simulation_ranktbl.csv")
+
+
+visualizeSimSeries <- function(series) {
+  par(mfrow = c(3,2))
+  grpidx <- c("1", "2", "3", "4", "5", "6")
+  for (i in 0:5) {
+    plot(ts(series[20*i+1,], frequency = 12), ylab = "series", main = paste0("Cluster", grpidx[i+1]))
+  }
+  par(mfrow = c(1,1))
+}
+
+visualizeSimPCA <- function(series) {
+  pca <- prcomp(series, scale.=TRUE)
+  grpidx <- c("1", "2", "3", "4", "5", "6")
+  grps <- rep(grpidx, each=20)
+  ggplot(mapping = aes(x = pca$x[,1], y=pca$x[,2], color = grps, group=grps)) +
+    geom_point() +
+    xlab("Principal Component 1") +
+    ylab("Principal Component 2") +
+    labs(color = "Clusters")
+}
+
+
+library(ggplot2)
+
+visualizeSimPCA(dt$series[[1]])
+ggsave("figures/Figure8.jpg", width = 6, height = 3)
+
+
+
+jpeg("figures/Figure9.jpg", width = 1200, height = 600)
+visualizeSimSeries(dt$series[[1]])
+dev.off()
+ 

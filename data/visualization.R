@@ -42,7 +42,8 @@ for (data in c("mortality", "tourism")) {
   
   
   p3 <- gridExtra::grid.arrange(p1, p2, ncol = 2, widths = c(2, 1))
-  pdf(sprintf("manuscript/figures/%s.pdf", data), width = 16 / 2.3 * 1.3, height=9 / 3 * 1.3)
+  path <- ifelse(data == "tourism", "Figure2", "Figure3")
+  jpeg(sprintf("figures/%s.eps", path), height = 390, width = 1600 / 2.3 * 1.3)
   p4 <- ggplot(data = dt_selected %>% filter(key != "Total", key %in% bottom_names)) +
     geom_line(mapping = aes(x = index, y = y)) +
     facet_wrap(~ key, ncol = 3, scales = "free") +
