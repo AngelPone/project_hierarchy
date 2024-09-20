@@ -4,7 +4,17 @@ This repository supports the publication "Constructing hierarchical time series 
 
 This repository contains the mortality dataset, tourism dataset and necessary code to produce tables and figures in the paper.
 
+## Requirements
 
+The following packages are required to finish the experiments.
+
+- `dplyr`,  `tidyr`, `future` `furrr`, `purrr`, `stringi`, `abind`, `iterators`, `Matrix` for data manipulation
+- `cluster`, `dtw` for clustering
+- `tsfeatures` for features calculation
+- `forecast`, `FoReco` for forecasting
+- `tsutils` for plot
+
+All packages are avaiable on CRAN.
 
 
 
@@ -40,7 +50,7 @@ Rscript R/run_comb.R
 ```
 
 
-- Use the following code to evaluate cluster hierarchies and produce Table 3 and 8, Figure 4 and 12. The plots are saved in `manuscript/figures/mortality` and `manuscript/figures/tourism`.
+- Use the following code to evaluate cluster hierarchies and produce Table 3 and 8, Figure 4 and 12. The plots are saved in `figures` .
 
 ```shell
 Rscript R/run_eval_cluster.R mortality
