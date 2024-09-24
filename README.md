@@ -46,7 +46,8 @@ Rscript R/run_nl.R mortality
 ```shell
 Rscript R/run_nlf.R tourism
 Rscript R/run_nlf.R mortality
-Rscript R/run_comb.R
+Rscript R/run_comb.R tourism
+Rscript R/run_comb.R mortality
 ```
 
 
