@@ -98,6 +98,10 @@ Rscript simulation/simu_summary.R
 
 The first line of code will create `simulation.rds` file in `simulation` folder. The second line of code will generate figures  and tables, which are used in the simulation section of the paper.
 
+## Computation time
+
+The authors finished the computation on a Mac Studio desktop computer equipped with an M1 Max chip featuring 8 efficient cores, running 8 parallel R sessions. The entire computational process spanned approximately one week. 
+
 ## References
 
 Bohan Zhang*, Anastasios Panagiotelis, Han Li (2024). Constructing hierarchical time series through clustering: Is there an optimal way for forecasting? arXiv preprint. https://arxiv.org/abs/2404.06064
